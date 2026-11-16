@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <title>Presupuesto Oficial — Coti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .client-quote-shell {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 16px 16px 64px;
+    }
+    .demo-banner {
+      background: #1A1A1A;
+      color: #FFFFFF;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.82rem;
+    }
+    .demo-banner a {
+      color: #A7F3D0;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid #A7F3D0;
+      padding: 4px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .remito-sheet {
+      background: #FFFFFF;
+      border: 2px solid #1A1A1A;
+      border-radius: 8px;
+      box-shadow: 4px 4px 0px #1A1A1A;
+      overflow: hidden;
+    }
+    .remito-letterhead {
+      padding: 20px;
+      border-bottom: 2px solid #1A1A1A;
+      background: #F9F9FB;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .remito-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .remito-stamp {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      border: 1.5px solid #1A1A1A;
+      object-fit: cover;
+      background: #FFFFFF;
+    }
+    .remito-code-box {
+      text-align: right;
+      font-family: var(--font-mono);
+    }
+    .remito-code-tag {
+      display: inline-block;
+      background: #1A1A1A;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    .remito-section {
+      padding: 18px 20px;
+      border-bottom: 1px dashed #D5D1C7;
+    }
+    .remito-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .remito-field-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #76736B;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .remito-field-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1A1A1A;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    .items-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #76736B;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid #1A1A1A;
+    }
+    .items-table td {
+      padding: 12px 4px;
+      border-bottom: 1px solid #EAE6DC;
+      font-size: 0.92rem;
+    }
+    .items-table td.num, .items-table th.num {
+      text-align: right;
+      font-family: var(--font-mono);
+    }
+    .totals-box {
+      padding: 20px;
+      background: #F2F0EA;
+      border-bottom: 2px solid #1A1A1A;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+    .total-row.grand {
+      font-size: 1.35rem;
+      font-weight: 800;
+      padding-top: 8px;
+      border-top: 1px solid #D5D1C7;
+    }
+    .deposit-highlight {
+      margin-top: 12px;
+      background: #E5EFEA;
+      border: 1.5px solid #1E4D3B;
+      border-radius: 6px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #1E4D3B;
+      font-weight: 800;
+    }
+    .payment-area {
+      padding: 20px;
+      background: #FFFFFF;
+    }
+    .gateway-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0 16px;
+    }
+    .gateway-option {
+      min-height: 48px;
+      padding: 8px;
+      border: 1.5px solid #D5D1C7;
+      border-radius: 6px;
+      background: #F9F9FB;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1A1A1A;
+      text-align: center;
+    }
+    .gateway-option.active {
+      border-color: #1E4D3B;
+      background: #E5EFEA;
+      color: #1E4D3B;
+      box-shadow: 2px 2px 0px #1E4D3B;
+    }
+    .approved-stamp-box {
+      background: #E5EFEA;
+      border: 2px solid #1E4D3B;
+      border-radius: 6px;
+      padding: 18px;
+      text-align: center;
+      color: #1E4D3B;
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: #FFFFFF;
+      }
+      .client-quote-shell {
+        padding: 0;
+        max-width: 100%;
+      }
+      .remito-sheet {
+        box-shadow: none;
+        border: 1px solid #000;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="client-quote-shell">
+    <div id="quoteContainer">
+      <div class="empty-state">Cargando presupuesto...</div>
+    </div>
+    <p class="no-print" style="text-align: center; font-size: 0.75rem; color: #76736B; margin-top: 18px;">
+      Presupuesto enviado con Coti 🐦
+    </p>
+  </div>
+
+  <script>
+    const publicId = decodeURIComponent(window.location.pathname.replace(/^\/p\//, "").replace(/\/$/, ""));
+    let selectedGateway = null;
+    let currentData = null;
+    let statusMessage = "";
+
+    function esc(val) {
+      return String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatMoney(n) {
+      return "USD $" + Number(n || 0).toLocaleString("es-AR");
+    }
+
+    function formatDate(ts) {
+      if (!ts) return "-";
+      return new Date(ts).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    async function post(action, body) {
+      const res = await fetch(`/api/public/quote/${encodeURIComponent(publicId)}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "No pudimos procesar el pedido. Probá de nuevo.");
+      return data;
+    }
+
+    function showNotFound() {
+      document.getElementById("quoteContainer").innerHTML = `
+        <div class="empty-state">
+          <img src="/assets/coti-mascot.jpg" alt="Coti" class="empty-mascot" />
+          <div class="empty-title">Presupuesto no encontrado</div>
+          <div class="empty-desc">Revisá que el link esté completo o pedile al taller que te lo reenvíe.</div>
+        </div>
+      `;
+    }
+
+    async function loadQuote() {
+      const res = await fetch("/api/public/quote/" + encodeURIComponent(publicId));
+      if (!res.ok) return showNotFound();
+      currentData = await res.json();
+      if (!selectedGateway) {
+        const opts = currentData.paymentOptions;
+        selectedGateway = opts.mercadoPago !== "off" ? "mp" : opts.transfer ? "transfer" : null;
+      }
+      renderQuote();
+    }
+
+    // Al volver de Mercado Pago (?payment_id=...&status=...) el servidor verifica el pago con la API de MP.
+    async function handleReturnFromMercadoPago() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentId = params.get("payment_id") || params.get("collection_id");
+      const status = params.get("status") || params.get("collection_status");
+      if (!paymentId || paymentId === "null") return;
+      window.history.replaceState(null, "", window.location.pathname);
+      if (status === "rejected" || status === "failure") {
+        statusMessage = "❌ El pago no se pudo completar. Podés intentarlo de nuevo.";
+        return;
+      }
+      try {
+        const data = await post("verify-payment", { paymentId });
+        if (data.pending) {
+          statusMessage = "⏳ Mercado Pago está procesando tu pago. Apenas se acredite, el presupuesto queda confirmado.";
+        }
+      } catch (err) {
+        statusMessage = "⏳ Estamos confirmando tu pago con Mercado Pago. Recargá la página en unos minutos.";
+      }
+    }
+
+    function selectGateway(gw) {
+      selectedGateway = gw;
+      statusMessage = "";
+      renderQuote();
+    }
+
+    async function payWithMercadoPago() {
+      const btn = document.getElementById("payBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Abriendo Mercado Pago...";
+      }
+      try {
+        const data = await post("checkout");
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        }
+        currentData = data;
+        renderQuote();
+      } catch (err) {
+        statusMessage = `⚠️ ${err.message}`;
+        renderQuote();
+      }
+    }
+
+    async function reportTransfer() {
+      if (!window.confirm("¿Ya hiciste la transferencia de la seña? El taller la va a verificar y te confirma.")) return;
+      try {
+        currentData = await post("report-transfer");
+        statusMessage = "";
+      } catch (err) {
+        statusMessage = `⚠️ ${err.message}`;
+      }
+      renderQuote();
+    }
+
+    function paymentSection(quote, workshop, opts) {
+      if (quote.status === "approved") {
+        return `
+          <div class="approved-stamp-box">
+            <div style="font-size: 1.3rem; font-weight: 800; margin-bottom: 4px;">✓ PRESUPUESTO ACEPTADO Y SEÑADO</div>
+            <div style="font-size: 0.9rem;">
+              Seña de <strong>${formatMoney(quote.depositAmount)}</strong> registrada vía <strong>${esc(quote.paymentMethod || "pago confirmado")}</strong> el ${formatDate(quote.approvedAt)}.
+            </div>
+            <div style="font-size: 0.82rem; margin-top: 6px; color: #1A1A1A;">
+              ${esc(workshop.owner)} ya fue avisado para coordinar la fecha del trabajo.
+            </div>
+          </div>`;
+      }
+
+      if (quote.expired) {
+        return `
+          <div class="preview-note">
+            ⌛ <strong>Este presupuesto venció.</strong> Escribile al taller por WhatsApp para que te lo actualice.
+          </div>`;
+      }
+
+      if (quote.transferReportedAt) {
+        return `
+          <div class="approved-stamp-box" style="background: #FFFBEB; border-color: #D97706; color: #92400E;">
+            <div style="font-size: 1.1rem; font-weight: 800; margin-bottom: 4px;">🏦 Transferencia informada</div>
+            <div style="font-size: 0.9rem;">
+              Le avisamos a ${esc(workshop.owner)}. Cuando verifique que llegó la seña, este presupuesto queda confirmado.
+            </div>
+          </div>`;
+      }
+
+      const hasMp = opts.mercadoPago !== "off";
+      if (!hasMp && !opts.transfer) {
+        return `
+          <div class="preview-note">
+            Para confirmar el trabajo, escribile a ${esc(workshop.owner)} por WhatsApp y coordinen la seña de <strong>${formatMoney(quote.depositAmount)}</strong>.
+          </div>`;
+      }
+
+      const options = [];
+      if (hasMp) {
+        options.push(`<button type="button" class="gateway-option ${selectedGateway === "mp" ? "active" : ""}" onclick="selectGateway('mp')">💳 Mercado Pago</button>`);
+      }
+      if (opts.transfer) {
+        options.push(`<button type="button" class="gateway-option ${selectedGateway === "transfer" ? "active" : ""}" onclick="selectGateway('transfer')">🏦 Transferencia</button>`);
+      }
+
+      let actionHtml = "";
+      if (selectedGateway === "mp") {
+        actionHtml = `
+          ${opts.mercadoPago === "demo" ? `<div style="font-size: 0.78rem; color: #92400E; margin-bottom: 8px;">🧪 Modo demo: no se cobra dinero real.</div>` : ""}
+          <button id="payBtn" type="button" class="btn btn-primary btn-block" style="font-size: 1.05rem; min-height: 54px;" onclick="payWithMercadoPago()">
+            ✓ Aceptar presupuesto y señar ${formatMoney(quote.depositAmount)}
+          </button>`;
+      } else if (selectedGateway === "transfer") {
+        actionHtml = `
+          <div style="background: #F9F9FB; border: 1px solid #D5D1C7; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; font-size: 0.88rem; line-height: 1.7;">
+            Transferí <strong class="mono">${formatMoney(quote.depositAmount)}</strong> a:<br />
+            ${workshop.alias ? `<strong>Alias:</strong> <span class="mono">${esc(workshop.alias)}</span><br />` : ""}
+            ${workshop.cbu ? `<strong>CBU/CVU:</strong> <span class="mono">${esc(workshop.cbu)}</span><br />` : ""}
+            <span style="font-size: 0.8rem; color: #4A4843;">Referencia: ${esc(quote.code)}</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" style="font-size: 1.05rem; min-height: 54px;" onclick="reportTransfer()">
+            ✓ Acepto el presupuesto y ya transferí la seña
+          </button>`;
+      }
+
+      return `
+        <div class="no-print">
+          <div class="remito-field-label">Elegí cómo abonar la seña para confirmar el trabajo:</div>
+          <div class="gateway-selector" style="grid-template-columns: repeat(${options.length}, 1fr);">${options.join("")}</div>
+          ${actionHtml}
+        </div>`;
+    }
+
+    function renderQuote() {
+      const { quote, workshop, paymentOptions } = currentData;
+      const validUntil = new Date((quote.createdAt || Date.now()) + (quote.validityDays || 7) * 86400000);
+
+      const itemsRows = (quote.items || [])
+        .map(
+          (it) => `
+          <tr>
+            <td><strong>${esc(it.title)}</strong></td>
+            <td class="num">${Number(it.qty)}</td>
+            <td class="num">${formatMoney(it.unitPrice)}</td>
+            <td class="num"><strong>${formatMoney(it.total)}</strong></td>
+          </tr>`
+        )
+        .join("");
+
+      const cleanWorkshopPhone = (workshop.phone || "").replace(/\D/g, "");
+      const waQuestionUrl = `https://wa.me/${cleanWorkshopPhone}?text=${encodeURIComponent(
+        `Hola ${workshop.owner}, estoy viendo el presupuesto ${quote.code} (${quote.serviceSummary}) y quería hacerte una consulta.`
+      )}`;
+
+      document.title = `Presupuesto ${quote.code} — ${workshop.name}`;
+      document.getElementById("quoteContainer").innerHTML = `
+        ${statusMessage ? `<div class="preview-note no-print" style="margin-bottom: 12px;">${esc(statusMessage)}</div>` : ""}
+        <article class="remito-sheet">
+          <header class="remito-letterhead">
+            <div class="remito-brand">
+              <img src="/assets/coti-badge.jpg" alt="Sello" class="remito-stamp" />
+              <div>
+                <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #1E4D3B;">Presupuesto Oficial de Servicio</div>
+                <h1 style="font-size: 1.2rem; font-weight: 800;">${esc(workshop.name)}</h1>
+                <div style="font-size: 0.82rem; color: #4A4843;">Resp: ${esc(workshop.owner)} · WhatsApp ${esc(workshop.phone)}</div>
+              </div>
+            </div>
+            <div class="remito-code-box">
+              <span class="remito-code-tag">${esc(quote.code)}</span>
+              <div style="font-size: 0.75rem; color: #4A4843; margin-top: 6px;">Emitido: ${formatDate(quote.createdAt)}</div>
+              <div style="font-size: 0.75rem; color: #92400E; font-weight: 700;">Válido hasta: ${formatDate(validUntil)}</div>
+            </div>
+          </header>
+
+          <section class="remito-section">
+            <div class="remito-grid-2">
+              <div>
+                <div class="remito-field-label">Preparado para</div>
+                <div class="remito-field-val">${esc(quote.clientName)}</div>
+                <div style="font-size: 0.82rem; color: #4A4843;">${esc(quote.clientPhone)}</div>
+              </div>
+              <div>
+                <div class="remito-field-label">Domicilio / Obra</div>
+                <div class="remito-field-val">${esc(quote.clientAddress || "A coordinar")}</div>
+              </div>
+            </div>
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #EAE6DC;">
+              <div class="remito-field-label">Trabajo Solicitado</div>
+              <div class="remito-field-val">${esc(quote.serviceSummary)}</div>
+            </div>
+          </section>
+
+          <section class="remito-section">
+            <div class="remito-field-label">Detalle de Mano de Obra y Materiales</div>
+            <table class="items-table">
+              <thead>
+                <tr><th>Concepto</th><th class="num">Cant.</th><th class="num">Unitario</th><th class="num">Subtotal</th></tr>
+              </thead>
+              <tbody>${itemsRows}</tbody>
+            </table>
+          </section>
+
+          <section class="totals-box">
+            <div class="total-row grand">
+              <span>VALOR TOTAL DEL TRABAJO</span>
+              <span class="mono">${formatMoney(quote.total)}</span>
+            </div>
+            <div class="deposit-highlight">
+              <div>
+                <div style="font-size: 0.78rem; text-transform: uppercase;">Seña para congelar precio y agendar turno (${Number(quote.depositPct)}%)</div>
+                <div style="font-size: 0.8rem; font-weight: 500; color: #1A1A1A;">El saldo restante (${formatMoney(quote.total - quote.depositAmount)}) se abona al finalizar el trabajo.</div>
+              </div>
+              <div class="mono" style="font-size: 1.3rem;">${formatMoney(quote.depositAmount)}</div>
+            </div>
+          </section>
+
+          <section class="payment-area">
+            ${paymentSection(quote, workshop, paymentOptions)}
+            <div class="quote-actions no-print" style="margin-top: 14px;">
+              <button type="button" class="btn btn-secondary" onclick="window.print()">📄 Descargar PDF / Imprimir</button>
+              <a href="${waQuestionUrl}" target="_blank" rel="noopener" class="btn btn-secondary">💬 Consultar por WhatsApp</a>
+            </div>
+          </section>
+        </article>
+      `;
+    }
+
+    (async () => {
+      if (!publicId) return showNotFound();
+      await handleReturnFromMercadoPago();
+      await loadQuote();
+    })();
+  </script>
+</body>
+</html>

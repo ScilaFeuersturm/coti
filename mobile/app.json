@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Coti",
+    "slug": "coti-crm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/coti-badge.jpg",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/coti-mascot.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#F9F9FB"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coti.crm"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/coti-badge.jpg",
+        "backgroundColor": "#F9F9FB"
+      },
+      "package": "com.coti.crm"
+    }
+  }
+}

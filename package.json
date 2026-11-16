@@ -1,0 +1,16 @@
+{
+  "name": "coti-crm",
+  "version": "1.1.0",
+  "description": "Coti — CRM Ultraligero & Inbox Zero para Servicios Locales de Alto Ticket. Cotizá en 60 segundos desde tu celular, cerrá señas por link y asegurá el seguimiento sin pensar.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/api.test.js"
+  },
+  "keywords": ["crm", "cotizaciones", "presupuestos", "whatsapp", "oficios", "pwa", "coti"],
+  "license": "MIT"
+}

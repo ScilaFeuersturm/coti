@@ -1,0 +1,7 @@
+node_modules/
+.env
+data/*.sqlite
+data/*.sqlite-*
+data/db.json
+.DS_Store
+mobile/.expo/

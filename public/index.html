@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Coti — Cotizá en 60 segundos y asegurá el seguimiento</title>
+  <meta name="theme-color" content="#1E4D3B" />
+  <meta name="description" content="Cotizá en 60 segundos desde tu celular, cerrá señas por link y asegurá el seguimiento sin pensar." />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <!-- iPhone / iPad: ícono y modo app al agregar a la pantalla de inicio -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Coti" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- ========================================================================
+       ACCESO: Ingresar / Crear cuenta del taller
+       ======================================================================== -->
+  <div id="authScreen" class="auth-screen" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="/assets/coti-badge.jpg" alt="Coti" />
+        <div>
+          <div style="font-size: 1.3rem; font-weight: 800;">Coti</div>
+          <div style="font-size: 0.85rem; color: var(--ink-secondary);">Cotizá en 60 segundos y no pierdas ningún seguimiento.</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" id="authTabLogin" onclick="setAuthTab('login')">Ingresar</button>
+        <button type="button" class="auth-tab" id="authTabRegister" onclick="setAuthTab('register')">Crear cuenta</button>
+      </div>
+
+      <div id="authError" class="auth-error" role="alert"></div>
+
+      <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+        <div>
+          <label class="field-label" for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" class="field-input" autocomplete="username" required />
+        </div>
+        <div>
+          <label class="field-label" for="loginPassword">Contraseña</label>
+          <input type="password" id="loginPassword" class="field-input" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar a mi taller</button>
+      </form>
+
+      <form id="registerForm" class="auth-form" style="display: none;" onsubmit="handleRegister(event)">
+        <div>
+          <label class="field-label" for="regWorkshop">Nombre del taller o empresa</label>
+          <input type="text" id="regWorkshop" class="field-input" placeholder="Ej: ClimaSur Instalaciones" required maxlength="120" />
+        </div>
+        <div>
+          <label class="field-label" for="regOwner">Tu nombre</label>
+          <input type="text" id="regOwner" class="field-input" placeholder="Ej: Martín Gómez" required maxlength="120" />
+        </div>
+        <div>
+          <label class="field-label" for="regPhone">WhatsApp del taller</label>
+          <input type="tel" id="regPhone" class="field-input mono" placeholder="+54 9 11 5555-1234" required />
+        </div>
+        <div>
+          <label class="field-label" for="regEmail">Email</label>
+          <input type="email" id="regEmail" class="field-input" autocomplete="username" required />
+        </div>
+        <div>
+          <label class="field-label" for="regPassword">Contraseña (mínimo 8 caracteres)</label>
+          <input type="password" id="regPassword" class="field-input" autocomplete="new-password" minlength="8" required />
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="regDemoData" />
+          Cargar presupuestos de ejemplo para probar
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Crear cuenta · 14 días gratis</button>
+        <div style="font-size: 0.78rem; color: var(--ink-muted); text-align: center;">Sin tarjeta de crédito.</div>
+      </form>
+
+      <div id="authDemoHint" class="auth-demo-hint" style="display: none;"></div>
+    </div>
+  </div>
+
+  <div id="appRoot" style="display: none;">
+  <!-- ========================================================================
+       SELECTOR DE ROL GLOBAL: 👷 Dueño del Taller vs 👤 Cliente Final
+       ======================================================================== -->
+  <div class="role-switcher-bar no-print">
+    <div class="role-switcher-inner">
+      <div class="role-tabs" role="tablist" aria-label="Cambiar rol de visualización">
+        <button
+          type="button"
+          id="roleBtnWorkshop"
+          class="role-tab-btn active-workshop"
+          onclick="switchRoleMode('workshop')"
+        >
+          👷 1. Vista Dueño del Taller (Tu App)
+        </button>
+        <button
+          type="button"
+          id="roleBtnClient"
+          class="role-tab-btn"
+          onclick="switchRoleMode('client')"
+        >
+          👤 2. Vista del Cliente (Link WhatsApp)
+        </button>
+      </div>
+
+      <div id="roleContextBanner" class="role-context-banner workshop-mode">
+        <span>
+          <strong>Estás viendo como Dueño del Taller:</strong> Esta es tu app privada en el celular para armar presupuestos en 60s y controlar quién no te respondió a las 48hs.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODO 1: 👷 VISTA PRIVADA DEL DUEÑO DEL TALLER / PRESTADOR DE SERVICIO
+       ======================================================================== -->
+  <div id="workshopModeWrapper">
+    <div class="app-shell">
+      <!-- Cabecera Principal con Mascota Coti (El Hornero de Oficio) -->
+      <header class="top-header">
+        <div class="header-inner">
+          <div class="brand-lockup">
+            <div class="mascot-avatar-wrap" onclick="openMascotModal()" title="Conocé a Coti, el Hornero de Oficio">
+              <img src="/assets/coti-badge.jpg" alt="Coti Mascota" />
+            </div>
+            <div class="brand-titles">
+              <div class="brand-name-row">
+                <span class="brand-name">Coti</span>
+                <span class="brand-badge">Panel del Taller</span>
+              </div>
+              <span class="workshop-subtitle" id="workshopHeaderName">ClimaSur & Reformas Integrales</span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <span id="trialPill" class="trial-pill" style="display: none;"></span>
+            <button type="button" class="btn btn-ghost" onclick="openSettingsModal()" title="Datos del taller, alias y CBU">
+              ⚙️ Mi taller
+            </button>
+            <button type="button" class="btn btn-ghost" onclick="openMascotModal()" title="Ver mascota y plan">
+              🐦 Coti Info
+            </button>
+            <button type="button" class="btn btn-ghost" onclick="handleLogout()" title="Cerrar sesión">
+              Salir
+            </button>
+            <button type="button" class="btn btn-primary" onclick="openNewQuoteModal()">
+              + Cotizar Flash
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Aviso para instalar Coti como app (se oculta si ya está instalada) -->
+      <div id="installBanner" class="install-banner no-print" style="display: none;">
+        <img src="/icons/icon-192.png" alt="" class="install-banner-icon" />
+        <div class="install-banner-text">
+          <strong>Instalá Coti en tu celular</strong>
+          <span>Abrila con un toque desde la pantalla de inicio, como cualquier app.</span>
+        </div>
+        <div class="install-banner-actions">
+          <button type="button" class="btn btn-primary" onclick="handleInstallClick()">📲 Instalar</button>
+          <button type="button" class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Ahora no">✕</button>
+        </div>
+      </div>
+
+      <!-- Módulo C: 3 Métricas Clave del Taller -->
+      <section class="metrics-strip" aria-label="Métricas clave del mes">
+        <div class="metric-card highlight-street">
+          <span class="metric-label">1. Dinero en la calle</span>
+          <span class="metric-value" id="metricStreet">USD $0</span>
+          <span class="metric-sub" id="metricStreetSub">Pendientes de respuesta</span>
+        </div>
+        <div class="metric-card highlight-closed">
+          <span class="metric-label">2. Cerrados este mes</span>
+          <span class="metric-value" id="metricClosed">USD $0</span>
+          <span class="metric-sub" id="metricClosedSub">Señas cobradas: USD $0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">3. Tasa de conversión</span>
+          <span class="metric-value" id="metricConversion">0%</span>
+          <span class="metric-sub" id="metricConversionSub">Presupuestos aprobados</span>
+        </div>
+      </section>
+
+      <!-- Barra Asistente de Coti (Alerta de 48hs o estado al día) -->
+      <div id="cotiAssistantBar" class="coti-assistant-bar">
+        <div class="coti-assistant-left">
+          <div class="coti-mini-fig">
+            <img src="/assets/coti-mascot.jpg" alt="Coti el Hornero" />
+          </div>
+          <div class="coti-speech" id="cotiSpeechText">
+            Cargando estado del taller...
+          </div>
+        </div>
+        <div id="cotiAssistantAction"></div>
+      </div>
+
+      <!-- Navegación entre Módulos del Taller -->
+      <nav class="main-nav" aria-label="Secciones principales">
+        <button type="button" class="nav-pill active" id="navBoard" onclick="switchMainSection('board')">
+          📋 Tablero Inbox Zero
+        </button>
+        <button type="button" class="nav-pill" id="navClients" onclick="switchMainSection('clients')">
+          👥 Agenda de Clientes (<span id="navClientsCount">0</span>)
+        </button>
+        <button type="button" class="nav-pill" id="navCatalog" onclick="switchMainSection('catalog')">
+          🧰 Mis Combos Rápidos (<span id="navCatalogCount">0</span>)
+        </button>
+      </nav>
+
+      <!-- Buscador instantáneo por nombre, teléfono o trabajo -->
+      <div class="toolbar-row">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            type="search"
+            id="globalSearchInput"
+            class="search-input"
+            placeholder="Buscar cliente, teléfono (ej. 11 6421) o servicio..."
+            oninput="handleSearch(this.value)"
+          />
+        </div>
+      </div>
+
+      <!-- SECCIÓN 1: TABLERO "INBOX ZERO" & EL SUPERPODER DE LAS 48 HORAS -->
+      <main id="sectionBoard" class="section-panel active" style="padding: 0;">
+        <div class="inbox-tabs" role="tablist">
+          <button type="button" class="inbox-tab" id="tabWaiting" onclick="setInboxTab('waiting_reply')">
+            <div class="inbox-tab-top">
+              <span class="inbox-tab-title">Esperando Respuesta</span>
+              <span class="inbox-tab-count" id="countWaiting">0</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px;">Ya enviados al cliente</span>
+          </button>
+
+          <button type="button" class="inbox-tab" id="tabDraft" onclick="setInboxTab('draft')">
+            <div class="inbox-tab-top">
+              <span class="inbox-tab-title">Por Enviar</span>
+              <span class="inbox-tab-count" id="countDraft">0</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px;">Borradores sin mandar</span>
+          </button>
+
+          <button type="button" class="inbox-tab" id="tabApproved" onclick="setInboxTab('approved')">
+            <div class="inbox-tab-top">
+              <span class="inbox-tab-title">Listas / Seña Pagada</span>
+              <span class="inbox-tab-count" id="countApproved">0</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px;">Clientes que ya señaron</span>
+          </button>
+        </div>
+
+        <div id="quotesListContainer" class="quotes-list"></div>
+      </main>
+
+      <!-- SECCIÓN 2: MÓDULO A — AGENDA DE CLIENTES E HISTORIAL DE COTIZACIONES -->
+      <section id="sectionClients" class="section-panel">
+        <div class="panel-card" style="background: var(--bg-subtle); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h2 style="font-size: 1.05rem; font-weight: 800;">Agenda de Clientes e Historial</h2>
+            <p style="font-size: 0.85rem; color: var(--ink-secondary);">
+              Cada cotización guarda el teléfono automáticamente para autocompletar en futuros trabajos.
+            </p>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="openNewQuoteModal()">
+            + Cotizar a un cliente
+          </button>
+        </div>
+        <div id="clientsListContainer"></div>
+      </section>
+
+      <!-- SECCIÓN 3: MÓDULO B — CATÁLOGO DE SERVICIOS / PLANTILLAS RÁPIDAS -->
+      <section id="sectionCatalog" class="section-panel">
+        <div class="panel-card">
+          <h2 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 4px;">Agregar Nuevo Combo Preestablecido</h2>
+          <p style="font-size: 0.84rem; color: var(--ink-secondary); margin-bottom: 12px;">
+            Guardá tus trabajos más frecuentes para cotizarlos en 1 toque desde la calle o el taller.
+          </p>
+          <form onsubmit="handleAddCatalogItem(event)" class="form-grid form-grid-2">
+            <div>
+              <label class="field-label">Nombre del combo / servicio</label>
+              <input type="text" id="catTitle" class="field-input" placeholder="Ej: Instalación Split 3000 frigorías" required />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label class="field-label">Rubro</label>
+                <input type="text" id="catCategory" class="field-input" placeholder="Climatización" />
+              </div>
+              <div>
+                <label class="field-label">Precio (USD)</label>
+                <input type="number" id="catPrice" class="field-input mono" placeholder="250" min="1" required />
+              </div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label class="field-label">Detalle incluido en el presupuesto</label>
+              <input type="text" id="catDesc" class="field-input" placeholder="Incluye materiales básicos, mano de obra y garantía..." />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <button type="submit" class="btn btn-primary">+ Guardar Combo en el Catálogo</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="catalogListContainer"></div>
+      </section>
+    </div>
+
+    <!-- Barra Flotante Inferior del Dueño del Taller -->
+    <div class="floating-bottom-bar no-print">
+      <div class="floating-bottom-inner">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="/assets/coti-mascot.jpg" alt="Coti" style="width: 38px; height: 38px; border-radius: 50%; border: 1px solid #1A1A1A; object-fit: cover;" />
+          <div>
+            <div style="font-size: 0.82rem; font-weight: 800;">¿Entró una consulta por WhatsApp?</div>
+            <div style="font-size: 0.74rem; color: var(--ink-secondary);">Armá el presupuesto en 3 clics y mandale el link</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="openNewQuoteModal()">
+          ⚡ Nueva Cotización
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODO 2: 👤 VISTA DEL CLIENTE FINAL (LO QUE RECIBE POR WHATSAPP)
+       ======================================================================== -->
+  <div id="clientModeWrapper" style="display: none;">
+    <div class="client-view-wrapper">
+      <div class="client-picker-bar no-print">
+        <div>
+          <div style="font-size: 0.74rem; font-weight: 800; text-transform: uppercase; color: var(--forest);">
+            Vista previa del link que recibe tu cliente
+          </div>
+          <div style="font-size: 0.84rem; color: var(--ink-secondary);">
+            Elegí qué presupuesto querés previsualizar:
+          </div>
+        </div>
+        <select
+          id="clientQuoteSelector"
+          class="client-picker-select"
+          onchange="selectClientPreviewQuote(this.value)"
+        ></select>
+      </div>
+
+      <!-- Hoja de Remito Oficial que ve el cliente -->
+      <div id="inlineClientQuoteContainer"></div>
+    </div>
+  </div>
+  </div><!-- /appRoot -->
+
+  <!-- ========================================================================
+       MODAL: AJUSTES DEL TALLER (membrete, WhatsApp, datos de transferencia)
+       ======================================================================== -->
+  <div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-sheet" style="max-width: 560px;">
+      <div class="modal-header">
+        <div class="modal-title-group"><strong>⚙️ Datos de mi taller</strong></div>
+        <button type="button" class="btn btn-ghost" onclick="closeSettingsModal()">✕ Cerrar</button>
+      </div>
+      <form onsubmit="handleSaveSettings(event)">
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--ink-secondary);">
+            Esto es lo que ve tu cliente en el membrete del presupuesto y donde te transfiere la seña.
+          </p>
+          <div class="form-grid form-grid-2">
+            <div>
+              <label class="field-label" for="setName">Nombre del taller</label>
+              <input type="text" id="setName" class="field-input" required maxlength="120" />
+            </div>
+            <div>
+              <label class="field-label" for="setOwner">Responsable</label>
+              <input type="text" id="setOwner" class="field-input" required maxlength="120" />
+            </div>
+            <div>
+              <label class="field-label" for="setPhone">WhatsApp del taller</label>
+              <input type="tel" id="setPhone" class="field-input mono" required />
+            </div>
+            <div>
+              <label class="field-label" for="setAlias">Alias para transferencias</label>
+              <input type="text" id="setAlias" class="field-input mono" maxlength="60" placeholder="MI.TALLER.MP" />
+            </div>
+            <div>
+              <label class="field-label" for="setCbu">CBU / CVU</label>
+              <input type="text" id="setCbu" class="field-input mono" maxlength="40" inputmode="numeric" />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label class="field-label" for="setDeposit">Seña por defecto (%)</label>
+                <input type="number" id="setDeposit" class="field-input mono" min="0" max="100" />
+              </div>
+              <div>
+                <label class="field-label" for="setValidity">Validez (días)</label>
+                <input type="number" id="setValidity" class="field-input mono" min="1" max="90" />
+              </div>
+            </div>
+          </div>
+          <div id="settingsAccountInfo" style="font-size: 0.8rem; color: var(--ink-muted);"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CÓMO INSTALAR COTI (iPhone / navegadores sin instalación automática)
+       ======================================================================== -->
+  <div id="installGuideModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title-group"><strong>📲 Instalá Coti en tu celular</strong></div>
+        <button type="button" class="btn btn-ghost" onclick="closeInstallGuide()">✕ Cerrar</button>
+      </div>
+      <div class="modal-body">
+        <div id="installGuideInApp" class="preview-note" style="display: none;">
+          ⚠️ Estás dentro de otra app (WhatsApp, Instagram...). Primero tocá <strong>⋯</strong> y elegí
+          <strong>"Abrir en Safari"</strong> o <strong>"Abrir en el navegador"</strong>.
+        </div>
+        <ol class="install-steps" id="installStepsIos">
+          <li>
+            <span class="install-step-num">1</span>
+            <div>Tocá el botón <strong>Compartir</strong>
+              <span class="install-share-glyph" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+              </span>
+              abajo de la pantalla (en iPad, arriba a la derecha).
+            </div>
+          </li>
+          <li>
+            <span class="install-step-num">2</span>
+            <div>Deslizá hacia abajo y elegí <strong>"Agregar a inicio"</strong>.</div>
+          </li>
+          <li>
+            <span class="install-step-num">3</span>
+            <div>Tocá <strong>"Agregar"</strong>. Listo: Coti aparece en tu pantalla de inicio con el hornero.</div>
+          </li>
+        </ol>
+        <ol class="install-steps" id="installStepsOther" style="display: none;">
+          <li>
+            <span class="install-step-num">1</span>
+            <div>Abrí el menú del navegador (<strong>⋮</strong> arriba a la derecha).</div>
+          </li>
+          <li>
+            <span class="install-step-num">2</span>
+            <div>Elegí <strong>"Instalar app"</strong> o <strong>"Agregar a pantalla principal"</strong>.</div>
+          </li>
+          <li>
+            <span class="install-step-num">3</span>
+            <div>Confirmá. Coti queda como una app más en tu celular.</div>
+          </li>
+        </ol>
+        <p style="font-size: 0.8rem; color: var(--ink-muted);">
+          No ocupa lugar como una app de tienda y siempre tenés la última versión.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: EDICIÓN GENÉRICA (clientes y combos)
+       ======================================================================== -->
+  <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-sheet" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title-group"><strong id="editModalTitle">Editar</strong></div>
+        <button type="button" class="btn btn-ghost" onclick="closeEditModal()">✕ Cerrar</button>
+      </div>
+      <form onsubmit="handleEditModalSave(event)">
+        <div class="modal-body">
+          <div id="editModalFields" class="form-grid"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="editModalDelete" class="btn btn-ghost" onclick="handleEditModalDelete()">🗑️ Eliminar</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 1: COTIZACIÓN FLASH EN 3 CLICS (DEL DUEÑO DEL TALLER)
+       ======================================================================== -->
+  <div id="newQuoteModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <img src="/assets/coti-badge.jpg" alt="Coti" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #1A1A1A;" />
+          <div>
+            <h2 style="font-size: 1.05rem; font-weight: 800;">Cotización Flash en 3 Clics</h2>
+            <div style="font-size: 0.76rem; color: var(--ink-secondary);">Genera el Link Web que verá tu cliente + PDF</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost" onclick="closeNewQuoteModal()">✕ Cerrar</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- PASO 1: CLIENTE Y WHATSAPP -->
+        <div class="step-block">
+          <div class="step-header">
+            <div class="step-title">
+              <span class="step-number">1</span> ¿A qué cliente le cotizás?
+            </div>
+            <span style="font-size: 0.74rem; color: var(--ink-muted);">Autocompletar agenda:</span>
+          </div>
+
+          <div id="clientQuickChips" class="chips-scroll"></div>
+
+          <div class="form-grid form-grid-2">
+            <div>
+              <label class="field-label">Nombre del cliente *</label>
+              <input type="text" id="fqClientName" class="field-input" placeholder="Ej: Juan Pérez / Estudio Arq." required />
+            </div>
+            <div>
+              <label class="field-label">Teléfono / WhatsApp *</label>
+              <input type="tel" id="fqClientPhone" class="field-input mono" placeholder="+54 9 11 5555-1234" required />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label class="field-label">Dirección / Obra (Opcional)</label>
+              <input type="text" id="fqClientAddress" class="field-input" placeholder="Ej: Av. Cabildo 2400, Piso 4" />
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 2: SERVICIO REQUERIDO (COMBOS RÁPIDOS O NOTA DE VOZ) -->
+        <div class="step-block">
+          <div class="step-header">
+            <div class="step-title">
+              <span class="step-number">2</span> Elegí un Combo o dictá Nota de Voz
+            </div>
+          </div>
+
+          <div class="field-label">Tocá un combo preestablecido para cargarlo al instante:</div>
+          <div id="modalComboList" class="combo-grid"></div>
+
+          <!-- Nota de Voz Transcrita -->
+          <div class="voice-box">
+            <div class="voice-box-top">
+              <span style="font-size: 0.8rem; font-weight: 800;">🎙️ Nota de voz transcrita (manos ocupadas en taller)</span>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="voiceRecordBtn" class="btn btn-ghost" style="min-height: 34px; padding: 4px 10px;" onclick="toggleVoiceDictation()">
+                  🎤 Dictar voz
+                </button>
+                <button type="button" class="btn btn-ghost" style="min-height: 34px; padding: 4px 10px;" onclick="simulateWorkshopVoiceNote()">
+                  ⚡ Ejemplo taller
+                </button>
+              </div>
+            </div>
+            <textarea
+              id="fqVoiceTranscript"
+              class="field-input"
+              style="min-height: 62px; font-size: 0.85rem;"
+              placeholder="Ej: Instalar equipo split 4500 frigorías en dormitorio con 4 metros de caño y ménsulas reforzadas..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- PASO 3: ÍTEMS, ADICIONALES DE 1 TOQUE Y SEÑA -->
+        <div class="step-block">
+          <div class="step-header">
+            <div class="step-title">
+              <span class="step-number">3</span> Ítems, Adicionales y Seña
+            </div>
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <label class="field-label">Resumen corto del trabajo</label>
+            <input type="text" id="fqServiceSummary" class="field-input" placeholder="Ej: Instalación Split + Materiales adicionales" />
+          </div>
+
+          <div class="field-label">Sumar adicional con 1 toque:</div>
+          <div id="addonQuickChips" class="chips-scroll"></div>
+
+          <div class="field-label" style="margin-top: 6px;">Detalle de ítems cotizados:</div>
+          <div id="fqItemsList" class="quote-items-editor"></div>
+
+          <button type="button" class="btn btn-ghost" style="width: 100%; margin-bottom: 12px;" onclick="addBlankItemRow()">
+            + Agregar renglón libre
+          </button>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <span class="field-label" style="margin: 0;">Porcentaje de Seña que le pedís al cliente:</span>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="chip-btn" id="depBtn30" onclick="setDepositPct(30)">30%</button>
+              <button type="button" class="chip-btn selected" id="depBtn40" onclick="setDepositPct(40)">40%</button>
+              <button type="button" class="chip-btn" id="depBtn50" onclick="setDepositPct(50)">50%</button>
+            </div>
+          </div>
+
+          <div class="flash-total-bar">
+            <div>
+              <div style="font-size: 0.74rem; text-transform: uppercase; color: #D5D1C7;">Total Presupuesto</div>
+              <div class="mono" style="font-size: 1.4rem; font-weight: 800;" id="fqGrandTotal">USD $0</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 0.74rem; text-transform: uppercase; color: #A7F3D0;">Seña a cobrar por link</div>
+              <div class="mono" style="font-size: 1.15rem; font-weight: 800; color: #A7F3D0;" id="fqDepositTotal">USD $0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="submitNewQuote(false)">
+          Guardar en "Por Enviar"
+        </button>
+        <button type="button" class="btn btn-primary" style="flex: 2;" onclick="submitNewQuote(true)">
+          📲 Crear y Enviar por WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 2: CONOCÉ A COTI (MASCOTA DE MARCA & PLAN ÚNICO)
+       ======================================================================== -->
+  <div id="mascotModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-sheet" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <strong>🐦 Coti, el Hornero de Oficio</strong>
+        </div>
+        <button type="button" class="btn btn-ghost" onclick="closeMascotModal()">✕ Cerrar</button>
+      </div>
+      <div class="modal-body" style="text-align: center; align-items: center;">
+        <img
+          src="/assets/coti-mascot.jpg"
+          alt="Coti el Hornero constructor con su libreta de presupuestos"
+          style="width: 180px; height: 180px; object-fit: cover; border-radius: 12px; border: 2px solid #1A1A1A; box-shadow: 4px 4px 0px #1A1A1A;"
+        />
+        <h3 style="font-size: 1.25rem; font-weight: 800;">
+          "Cotizá en 60 segundos desde tu celular, cerrá señas por link y asegurá el seguimiento sin pensar."
+        </h3>
+        <p style="font-size: 0.9rem; color: var(--ink-secondary); max-width: 440px;">
+          Como buen <strong>hornero constructor</strong>, Coti no deja ningún trabajo a mitad de camino: lleva el lápiz de carpintero en la oreja, el talonario bajo el ala y te avisa exactamente a las <strong>48 horas</strong> cuando un presupuesto quedó sin respuesta.
+        </p>
+
+        <div class="step-block" style="width: 100%; text-align: left; background: var(--forest-tint); border-color: var(--forest);">
+          <div style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; color: var(--forest);">
+            Plan Único Coti · Simplicidad Total
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0;">
+            <span style="font-size: 1.1rem; font-weight: 800;">Suscripción Mensual</span>
+            <span class="mono" style="font-size: 1.35rem; font-weight: 800; color: var(--forest);">USD $24 / mes</span>
+          </div>
+          <ul style="font-size: 0.84rem; color: var(--ink-primary); padding-left: 18px; margin-bottom: 10px;">
+            <li>Prueba de <strong>14 días sin tarjeta de crédito</strong>.</li>
+            <li>Presupuestos web + PDF ilimitados y seguimiento a las 48hs por WhatsApp.</li>
+            <li><strong>Regla de oro:</strong> Si recuperás <em>una sola cotización perdida al mes</em>, Coti se paga solo por los próximos 6 meses.</li>
+          </ul>
+          <button type="button" id="installFromInfoBtn" class="btn btn-secondary btn-block" style="margin-bottom: 8px;" onclick="closeMascotModal(); handleInstallClick()">
+            📲 Instalar Coti en este celular
+          </button>
+          <button type="button" id="resetDemoBtn" class="btn btn-ghost btn-block" style="display: none;" onclick="resetDemoData()">
+            🔄 Restaurar datos de demostración iniciales
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor de avisos rápidos -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
