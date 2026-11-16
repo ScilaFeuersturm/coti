@@ -455,22 +455,28 @@ export class CotiStore {
   }
 
   // ------------------------------------------------------------------ Mercado Pago por negocio (OAuth)
-  async createOAuthState(wsId, state) {
+  async createOAuthState(wsId, state, codeVerifier) {
     const now = Date.now();
     await this.db.batch([
       this.q("DELETE FROM oauth_states WHERE created_at < ?", now - 30 * 60 * 1000),
-      this.q("INSERT INTO oauth_states (state, workshop_id, created_at) VALUES (?, ?, ?)", state, wsId, now)
+      this.q(
+        "INSERT INTO oauth_states (state, workshop_id, code_verifier, created_at) VALUES (?, ?, ?, ?)",
+        state,
+        wsId,
+        codeVerifier,
+        now
+      )
     ]);
   }
 
-  // Consume el state (un solo uso). Devuelve el workshop_id si es válido y no venció (15 min).
+  // Consume el state (un solo uso). Devuelve { workshopId, codeVerifier } si es válido y no venció (15 min).
   async consumeOAuthState(state) {
     const row = await this.q(
-      "DELETE FROM oauth_states WHERE state = ? RETURNING workshop_id, created_at",
+      "DELETE FROM oauth_states WHERE state = ? RETURNING workshop_id, code_verifier, created_at",
       state
     ).first();
     if (!row || Date.now() - row.created_at > 15 * 60 * 1000) return null;
-    return row.workshop_id;
+    return { workshopId: row.workshop_id, codeVerifier: row.code_verifier };
   }
 
   getMpConnectionRow(wsId) {

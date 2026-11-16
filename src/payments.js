@@ -72,13 +72,15 @@ async function mpFetch(token, pathname, { method = "GET", body, idempotencyKey, 
   return data;
 }
 
-export function authorizationUrl(cfg, { state, redirectUri }) {
+export function authorizationUrl(cfg, { state, redirectUri, codeChallenge }) {
   const u = new URL(`https://${cfg.authDomain}/authorization`);
   u.searchParams.set("client_id", cfg.clientId);
   u.searchParams.set("response_type", "code");
   u.searchParams.set("platform_id", "mp");
   u.searchParams.set("state", state);
   u.searchParams.set("redirect_uri", redirectUri);
+  u.searchParams.set("code_challenge", codeChallenge);
+  u.searchParams.set("code_challenge_method", "S256");
   return u.toString();
 }
 
@@ -125,7 +127,7 @@ export const mercadoPagoClient = {
     return Array.isArray(me.tags) && me.tags.includes("test_user");
   },
 
-  exchangeCode(cfg, { code, redirectUri }) {
+  exchangeCode(cfg, { code, redirectUri, codeVerifier }) {
     return mpFetch(null, "/oauth/token", {
       method: "POST",
       body: {
@@ -134,6 +136,7 @@ export const mercadoPagoClient = {
         grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
         ...(cfg.oauthTestTokens ? { test_token: "true" } : {})
       }
     });

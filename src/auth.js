@@ -71,6 +71,13 @@ export async function hashToken(token) {
   return toHex(await crypto.subtle.digest("SHA-256", enc.encode(token)));
 }
 
+// PKCE (RFC 7636): verificador aleatorio y su desafío S256.
+export async function pkcePair() {
+  const verifier = randomToken(48); // 64 caracteres base64url
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(verifier));
+  return { verifier, challenge: toB64url(new Uint8Array(digest)) };
+}
+
 export async function hmacSha256Hex(secret, message) {
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(message)));

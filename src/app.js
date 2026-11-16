@@ -365,11 +365,16 @@ export function createApiHandler(options = {}) {
       if (!payCfg.oauthEnabled) return redirect("/?mp=no-disponible");
       const state = str(url.searchParams.get("state"), 100);
       const code = str(url.searchParams.get("code"), 300);
-      const wsId = state ? await store.consumeOAuthState(state) : null;
-      if (!wsId) return redirect("/?mp=error");
+      const pending = state ? await store.consumeOAuthState(state) : null;
+      if (!pending) return redirect("/?mp=error");
+      const wsId = pending.workshopId;
       if (!code) return redirect("/?mp=cancelado");
       try {
-        const data = await mpClient.exchangeCode(payCfg, { code, redirectUri: `${baseUrl}/api/mp/callback` });
+        const data = await mpClient.exchangeCode(payCfg, {
+          code,
+          redirectUri: `${baseUrl}/api/mp/callback`,
+          codeVerifier: pending.codeVerifier
+        });
         if (!data || !data.access_token || !data.user_id) throw new Error("Respuesta sin token");
         await saveConnection(store, payCfg, wsId, data);
         return redirect("/?mp=conectado");
@@ -545,8 +550,11 @@ export function createApiHandler(options = {}) {
     if (pathname === "/api/mp/connect" && method === "GET") {
       if (!payCfg.oauthEnabled) return redirect("/?mp=no-disponible");
       const state = auth.randomToken(24);
-      await store.createOAuthState(ws, state);
-      return redirect(payments.authorizationUrl(payCfg, { state, redirectUri: `${baseUrl}/api/mp/callback` }));
+      const pkce = await auth.pkcePair();
+      await store.createOAuthState(ws, state, pkce.verifier);
+      return redirect(
+        payments.authorizationUrl(payCfg, { state, redirectUri: `${baseUrl}/api/mp/callback`, codeChallenge: pkce.challenge })
+      );
     }
 
     if (pathname === "/api/mp/disconnect" && method === "POST") {

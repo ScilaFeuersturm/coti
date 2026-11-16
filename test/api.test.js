@@ -2,7 +2,7 @@
 // Llaman al mismo manejador que usa el Worker, con una base D1 simulada en memoria.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { createApiHandler, computeMetrics } from "../src/app.js";
 import worker from "../src/worker.js";
 import { createTestD1 } from "./d1-shim.js";
@@ -290,8 +290,8 @@ describe("Mercado Pago", () => {
         return p;
       },
       isTestToken: async (token) => token.startsWith("TEST-"),
-      exchangeCode: async (cfg, { code }) => {
-        calls.exchanges.push(code);
+      exchangeCode: async (cfg, { code, codeVerifier }) => {
+        calls.exchanges.push({ code, codeVerifier });
         if (code !== "codigo-valido") throw new Error("invalid_grant");
         return { access_token: SELLER_TOKEN, refresh_token: "refresh-del-negocio", user_id: 999, public_key: "APP_USR-pk", live_mode: true, expires_in: 15552000 };
       },
@@ -396,6 +396,7 @@ describe("Mercado Pago", () => {
     );
     const pub = agent(app);
 
+    const challenges = {};
     async function connect(call) {
       const r = await call("GET", "/api/mp/connect");
       assert.equal(r.status, 302);
@@ -403,6 +404,8 @@ describe("Mercado Pago", () => {
       assert.equal(authUrl.host, "auth.mercadopago.com.ar");
       assert.equal(authUrl.searchParams.get("client_id"), "123456");
       assert.equal(authUrl.searchParams.get("redirect_uri"), "https://coti.test/api/mp/callback");
+      assert.equal(authUrl.searchParams.get("code_challenge_method"), "S256");
+      challenges[authUrl.searchParams.get("state")] = authUrl.searchParams.get("code_challenge");
       return authUrl.searchParams.get("state");
     }
 
@@ -414,6 +417,12 @@ describe("Mercado Pago", () => {
       const cb = await a("GET", `/api/mp/callback?code=codigo-valido&state=${state}`);
       assert.equal(cb.status, 302);
       assert.equal(cb.headers.get("location"), "/?mp=conectado");
+
+      // PKCE: el verificador enviado al canjear corresponde al challenge de la autorización
+      const { codeVerifier } = mp.calls.exchanges.at(-1);
+      assert.ok(codeVerifier && codeVerifier.length >= 43);
+      const expected = createHash("sha256").update(codeVerifier).digest("base64url");
+      assert.equal(challenges[state], expected);
 
       const s = await a("GET", "/api/state");
       assert.deepEqual(
