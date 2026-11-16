@@ -258,7 +258,7 @@
         <div class="empty-state">
           <img src="/assets/coti-mascot.jpg" alt="Coti" class="empty-mascot" />
           <div class="empty-title">Presupuesto no encontrado</div>
-          <div class="empty-desc">Revisá que el link esté completo o pedile al taller que te lo reenvíe.</div>
+          <div class="empty-desc">Revisá que el link esté completo o pedile al negocio que te lo reenvíe.</div>
         </div>
       `;
     }
@@ -322,7 +322,7 @@
     }
 
     async function reportTransfer() {
-      if (!window.confirm("¿Ya hiciste la transferencia de la seña? El taller la va a verificar y te confirma.")) return;
+      if (!window.confirm("¿Ya hiciste la transferencia de la seña? El negocio la va a verificar y te confirma.")) return;
       try {
         currentData = await post("report-transfer");
         statusMessage = "";
@@ -349,7 +349,7 @@
       if (quote.expired) {
         return `
           <div class="preview-note">
-            ⌛ <strong>Este presupuesto venció.</strong> Escribile al taller por WhatsApp para que te lo actualice.
+            ⌛ <strong>Este presupuesto venció.</strong> Escribile al negocio por WhatsApp para que te lo actualice.
           </div>`;
       }
 
@@ -383,6 +383,7 @@
       if (selectedGateway === "mp") {
         actionHtml = `
           ${opts.mercadoPago === "demo" ? `<div style="font-size: 0.78rem; color: #92400E; margin-bottom: 8px;">🧪 Modo demo: no se cobra dinero real.</div>` : ""}
+          ${opts.mercadoPago === "test" ? `<div style="font-size: 0.78rem; color: #92400E; margin-bottom: 8px;">🧪 Mercado Pago en modo prueba: usá una tarjeta de prueba, no se cobra dinero real.</div>` : ""}
           <button id="payBtn" type="button" class="btn btn-primary btn-block" style="font-size: 1.05rem; min-height: 54px;" onclick="payWithMercadoPago()">
             ✓ Aceptar presupuesto y señar ${formatMoney(quote.depositAmount)}
           </button>`;

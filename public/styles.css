@@ -1670,3 +1670,36 @@ html, body {
   background: var(--bg-paper);
   color: #0A64D6;
 }
+
+/* Conexión con Mercado Pago (Mi negocio) */
+.mp-connect-box {
+  border: 1px solid var(--border-crisp);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: var(--bg-bone);
+}
+.mp-connect-title {
+  font-weight: 800;
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+.mp-connect-body {
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mp-connected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-weight: 700;
+  color: var(--forest);
+  background: var(--forest-tint);
+  border: 1px solid var(--forest);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+}

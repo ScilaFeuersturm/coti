@@ -1,36 +1,46 @@
 // Cobro de señas con Mercado Pago (Checkout Pro).
 //
-// Modos:
-//  - "live": hay MP_ACCESS_TOKEN. El cliente paga en Mercado Pago y el presupuesto se aprueba
-//            SOLO cuando el servidor consulta el pago a la API de MP y confirma status=approved
-//            por el monto correcto.
-//  - "demo": no hay token y las herramientas demo están activas. Se aprueba sin cobrar.
-//  - "off":  no hay token y estamos en producción. La opción Mercado Pago no se ofrece.
+// ¿A qué cuenta va la seña?
+//  - Cada negocio conecta SU cuenta de Mercado Pago (OAuth, "Conectar Mercado Pago" en Mi negocio).
+//    Las preferencias se crean con el token de ese negocio → el dinero va directo a él.
+//  - MP_ACCESS_TOKEN (token global) es SOLO para pruebas: se usa únicamente si Mercado Pago confirma
+//    que es de una cuenta de prueba. Un token de producción global se ignora, para que nunca
+//    entre la seña de un negocio en la cuenta de la plataforma.
+//  - Sin nada de lo anterior: modo "demo" (solo fuera de producción, sin cobro real) u "off".
 
 import { hmacSha256Hex, safeEqual } from "./auth.js";
 
 const MP_API = "https://api.mercadopago.com";
+const MP_AUTH = "https://auth.mercadopago.com/authorization";
 
 export function getPaymentConfig(env, { demoTools }) {
-  const token = String(env.MP_ACCESS_TOKEN || "").trim();
+  const clientId = String(env.MP_CLIENT_ID || "").trim();
+  const clientSecret = String(env.MP_CLIENT_SECRET || "").trim();
+  const encKey = String(env.TOKEN_ENCRYPTION_KEY || "").trim();
   return {
-    mode: token ? "live" : demoTools ? "demo" : "off",
-    token,
+    demoTools,
+    globalToken: String(env.MP_ACCESS_TOKEN || "").trim(),
     webhookSecret: String(env.MP_WEBHOOK_SECRET || "").trim(),
     currency: String(env.MP_CURRENCY || "ARS").trim().toUpperCase(),
-    // Cuántas unidades de MP_CURRENCY vale 1 unidad de la moneda del taller (ej. 1 USD = 1200 ARS).
-    fxRate: Number(env.MP_FX_RATE) || null
+    // Cuántas unidades de MP_CURRENCY vale 1 unidad de la moneda del negocio (ej. 1 USD = 1200 ARS).
+    fxRate: Number(env.MP_FX_RATE) || null,
+    clientId,
+    clientSecret,
+    encKey,
+    oauthEnabled: Boolean(clientId && clientSecret && encKey),
+    // Con credenciales de prueba, pide a MP tokens de prueba al conectar cuentas.
+    oauthTestTokens: env.MP_OAUTH_TEST_TOKENS === "1"
   };
 }
 
-// Convierte la seña (moneda del taller) a la moneda en que cobra Mercado Pago.
+// Convierte la seña (moneda del negocio) a la moneda en que cobra Mercado Pago.
 export function chargeAmount(depositAmount, workshopCurrency, cfg) {
   if (String(workshopCurrency || "USD").toUpperCase() === cfg.currency) {
     return Math.round(depositAmount * 100) / 100;
   }
   if (!cfg.fxRate) {
     const err = new Error(
-      `El taller cotiza en ${workshopCurrency} pero Mercado Pago cobra en ${cfg.currency}. Configurá MP_FX_RATE.`
+      `El negocio cotiza en ${workshopCurrency} pero Mercado Pago cobra en ${cfg.currency}. Configurá MP_FX_RATE.`
     );
     err.code = "FX_RATE_MISSING";
     throw err;
@@ -38,32 +48,43 @@ export function chargeAmount(depositAmount, workshopCurrency, cfg) {
   return Math.round(depositAmount * cfg.fxRate * 100) / 100;
 }
 
-async function mpFetch(cfg, pathname, { method = "GET", body, idempotencyKey } = {}) {
-  const headers = { Authorization: `Bearer ${cfg.token}` };
+async function mpFetch(token, pathname, { method = "GET", body, idempotencyKey, form } = {}) {
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
   if (body) headers["Content-Type"] = "application/json";
   if (idempotencyKey) headers["X-Idempotency-Key"] = idempotencyKey;
   const res = await fetch(`${MP_API}${pathname}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(body) : form,
     signal: AbortSignal.timeout(10000)
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(`Mercado Pago respondió ${res.status}: ${data.message || "error"}`);
+    const err = new Error(`Mercado Pago respondió ${res.status}: ${data.message || data.error || "error"}`);
     err.status = res.status;
     throw err;
   }
   return data;
 }
 
+export function authorizationUrl(cfg, { state, redirectUri }) {
+  const u = new URL(MP_AUTH);
+  u.searchParams.set("client_id", cfg.clientId);
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("platform_id", "mp");
+  u.searchParams.set("state", state);
+  u.searchParams.set("redirect_uri", redirectUri);
+  return u.toString();
+}
+
 // Cliente real de la API de Mercado Pago (en los tests se reemplaza por uno simulado).
 export const mercadoPagoClient = {
-  async createPreference(cfg, { quote, workshop, baseUrl }) {
+  async createPreference(cfg, { quote, workshop, baseUrl, accessToken }) {
     const amount = chargeAmount(quote.depositAmount, workshop.currency, cfg);
     const backUrl = `${baseUrl}/p/${quote.publicId}`;
     const isHttps = baseUrl.startsWith("https://");
-    const pref = await mpFetch(cfg, "/checkout/preferences", {
+    const pref = await mpFetch(accessToken, "/checkout/preferences", {
       method: "POST",
       idempotencyKey: `coti-pref-${quote.id}-${amount}`,
       body: {
@@ -79,7 +100,8 @@ export const mercadoPagoClient = {
         ],
         external_reference: quote.id,
         metadata: { quote_id: quote.id },
-        notification_url: isHttps ? `${baseUrl}/api/webhooks/mercadopago` : undefined,
+        // El ID público en la ruta permite saber de qué negocio es el pago al recibir la notificación.
+        notification_url: isHttps ? `${baseUrl}/api/webhooks/mercadopago/${quote.publicId}` : undefined,
         back_urls: { success: backUrl, pending: backUrl, failure: backUrl },
         auto_return: isHttps ? "approved" : undefined,
         statement_descriptor: String(workshop.name || "COTI").slice(0, 22)
@@ -88,16 +110,49 @@ export const mercadoPagoClient = {
     return { initPoint: pref.init_point, preferenceId: pref.id, amount };
   },
 
-  getPayment(cfg, paymentId) {
-    return mpFetch(cfg, `/v1/payments/${encodeURIComponent(paymentId)}`);
+  getPayment(cfg, paymentId, accessToken) {
+    return mpFetch(accessToken, `/v1/payments/${encodeURIComponent(paymentId)}`);
+  },
+
+  // ¿El token es de una cuenta de prueba? (TEST-... o usuario de prueba con la etiqueta test_user)
+  async isTestToken(token) {
+    if (token.startsWith("TEST-")) return true;
+    const me = await mpFetch(token, "/users/me");
+    return Array.isArray(me.tags) && me.tags.includes("test_user");
+  },
+
+  exchangeCode(cfg, { code, redirectUri }) {
+    return mpFetch(null, "/oauth/token", {
+      method: "POST",
+      body: {
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        ...(cfg.oauthTestTokens ? { test_token: "true" } : {})
+      }
+    });
+  },
+
+  refreshToken(cfg, { refreshToken }) {
+    return mpFetch(null, "/oauth/token", {
+      method: "POST",
+      body: {
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken
+      }
+    });
   }
 };
 
-// Verifica la cabecera x-signature de los Webhooks de Mercado Pago.
+// Verifica la cabecera x-signature de las notificaciones de Mercado Pago.
 // Plantilla oficial: "id:{data.id};request-id:{x-request-id};ts:{ts};"
 export async function verifyWebhookSignature({ secret, signatureHeader, requestId, dataId }) {
-  if (!secret) return true; // sin secreto: se confía solo en la re-consulta a la API
-  if (!signatureHeader || !dataId) return false;
+  if (!secret || !signatureHeader) return true; // sin firma: igual se re-consulta el pago a la API
+  if (!dataId) return false;
   const parts = {};
   String(signatureHeader)
     .split(",")

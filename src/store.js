@@ -215,15 +215,23 @@ export class CotiStore {
 
   // ------------------------------------------------------------------ Estado completo del panel
   async getState(wsId) {
-    const [ws, catalog, addons, clients, quotes] = await this.db.batch([
+    const [ws, catalog, addons, clients, quotes, mp] = await this.db.batch([
       this.q("SELECT * FROM workshops WHERE id = ?", wsId),
       this.q("SELECT * FROM catalog WHERE workshop_id = ? ORDER BY created_at DESC", wsId),
       this.q("SELECT * FROM quick_addons WHERE workshop_id = ? ORDER BY position", wsId),
       this.q("SELECT * FROM clients WHERE workshop_id = ? ORDER BY created_at DESC", wsId),
-      this.q("SELECT * FROM quotes WHERE workshop_id = ? ORDER BY created_at DESC", wsId)
+      this.q("SELECT * FROM quotes WHERE workshop_id = ? ORDER BY created_at DESC", wsId),
+      // Solo el estado de la conexión; los tokens nunca salen de la base.
+      this.q("SELECT mp_user_id, live_mode, connected_at FROM mp_connections WHERE workshop_id = ?", wsId)
     ]);
+    const mpRow = (mp.results || [])[0];
     return {
-      workshop: mapWorkshop((ws.results || [])[0]),
+      workshop: {
+        ...mapWorkshop((ws.results || [])[0]),
+        mercadoPago: mpRow
+          ? { connected: true, mpUserId: mpRow.mp_user_id, liveMode: Boolean(mpRow.live_mode), connectedAt: mpRow.connected_at }
+          : { connected: false }
+      },
       catalog: (catalog.results || []).map(mapCatalog),
       quickAddons: (addons.results || []).map(mapAddon),
       clients: (clients.results || []).map(mapClient),
@@ -444,6 +452,55 @@ export class CotiStore {
       )
     ]);
     return { quote: await this.getQuoteById(quoteId), duplicate: ins.meta.changes === 0 };
+  }
+
+  // ------------------------------------------------------------------ Mercado Pago por negocio (OAuth)
+  async createOAuthState(wsId, state) {
+    const now = Date.now();
+    await this.db.batch([
+      this.q("DELETE FROM oauth_states WHERE created_at < ?", now - 30 * 60 * 1000),
+      this.q("INSERT INTO oauth_states (state, workshop_id, created_at) VALUES (?, ?, ?)", state, wsId, now)
+    ]);
+  }
+
+  // Consume el state (un solo uso). Devuelve el workshop_id si es válido y no venció (15 min).
+  async consumeOAuthState(state) {
+    const row = await this.q(
+      "DELETE FROM oauth_states WHERE state = ? RETURNING workshop_id, created_at",
+      state
+    ).first();
+    if (!row || Date.now() - row.created_at > 15 * 60 * 1000) return null;
+    return row.workshop_id;
+  }
+
+  getMpConnectionRow(wsId) {
+    return this.q("SELECT * FROM mp_connections WHERE workshop_id = ?", wsId).first();
+  }
+
+  async saveMpConnection(wsId, c) {
+    const now = Date.now();
+    await this.q(
+      `INSERT INTO mp_connections (workshop_id, mp_user_id, access_token_enc, refresh_token_enc, public_key,
+         live_mode, expires_at, connected_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(workshop_id) DO UPDATE SET
+         mp_user_id = excluded.mp_user_id, access_token_enc = excluded.access_token_enc,
+         refresh_token_enc = excluded.refresh_token_enc, public_key = excluded.public_key,
+         live_mode = excluded.live_mode, expires_at = excluded.expires_at, updated_at = excluded.updated_at`,
+      wsId,
+      String(c.mpUserId),
+      c.accessTokenEnc,
+      c.refreshTokenEnc,
+      c.publicKey || "",
+      c.liveMode ? 1 : 0,
+      c.expiresAt,
+      now,
+      now
+    ).run();
+  }
+
+  async deleteMpConnection(wsId) {
+    await this.q("DELETE FROM mp_connections WHERE workshop_id = ?", wsId).run();
   }
 
   // ------------------------------------------------------------------ Demo

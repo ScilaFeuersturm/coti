@@ -76,6 +76,31 @@ export async function hmacSha256Hex(secret, message) {
   return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(message)));
 }
 
+// ---------------------------------------------------------------------------
+// Cifrado de secretos guardados en la base (tokens de Mercado Pago de cada negocio).
+// AES-256-GCM con la clave TOKEN_ENCRYPTION_KEY (32 bytes en base64url).
+// ---------------------------------------------------------------------------
+async function importAesKey(keyB64) {
+  const raw = fromB64url(String(keyB64 || ""));
+  if (raw.length !== 32) throw new Error("TOKEN_ENCRYPTION_KEY debe ser de 32 bytes (base64url).");
+  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+export async function encryptSecret(plain, keyB64) {
+  const key = await importAesKey(keyB64);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plain));
+  return `v1.${toB64url(iv)}.${toB64url(new Uint8Array(ct))}`;
+}
+
+export async function decryptSecret(sealed, keyB64) {
+  const [version, ivB64, ctB64] = String(sealed || "").split(".");
+  if (version !== "v1" || !ivB64 || !ctB64) throw new Error("Secreto cifrado inválido.");
+  const key = await importAesKey(keyB64);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64url(ivB64) }, key, fromB64url(ctB64));
+  return new TextDecoder().decode(pt);
+}
+
 function parseCookies(header) {
   const out = {};
   String(header || "")

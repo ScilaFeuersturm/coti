@@ -147,7 +147,7 @@ function isExpired(quote, now = Date.now()) {
 }
 
 // Lo único que ve el cliente final: sin notas internas ni IDs de agenda.
-function publicView(quote, workshop, payCfg) {
+function publicView(quote, workshop, mpMode) {
   return {
     quote: {
       publicId: quote.publicId,
@@ -177,7 +177,7 @@ function publicView(quote, workshop, payCfg) {
       currency: workshop.currency
     },
     paymentOptions: {
-      mercadoPago: payCfg.mode, // live | demo | off
+      mercadoPago: mpMode, // live | test | demo | off
       transfer: Boolean(workshop.alias || workshop.cbu)
     }
   };
@@ -192,6 +192,10 @@ export function createApiHandler(options = {}) {
   const limits = { login: 10, register: 5, ...(options.limits || {}) };
   const mpClient = options.mpClient || payments.mercadoPagoClient;
   let demoChecked = false;
+  // ¿El token global es de prueba? Se consulta una vez por instancia (solo se guardan respuestas exitosas).
+  const globalTokenChecks = new Map();
+  const redirect = (location) =>
+    new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: location, "Cache-Control": "no-store" } });
 
   return async function handleApi(request, env) {
     const store = new CotiStore(env.DB);
@@ -259,13 +263,72 @@ export function createApiHandler(options = {}) {
     };
   }
 
-  async function approveFromMpPayment(store, payCfg, paymentId) {
-    const payment = await mpClient.getPayment(payCfg, paymentId);
-    const ref = payment && payment.external_reference ? await store.getQuoteById(payment.external_reference) : null;
-    if (!ref) return { ok: false, reason: "Presupuesto no encontrado" };
-    const { quote, workshop } = await store.getQuoteByPublicId(ref.publicId);
+  // ¿El token global es de prueba? (resultado cacheado en globalTokenChecks)
+  async function globalTokenIsTest(token) {
+    if (globalTokenChecks.has(token)) return globalTokenChecks.get(token);
+    try {
+      const isTest = await mpClient.isTestToken(token);
+      globalTokenChecks.set(token, isTest);
+      if (!isTest) console.error("MP_ACCESS_TOKEN es de PRODUCCIÓN: se ignora. Las señas reales se cobran con la cuenta conectada de cada negocio.");
+      return isTest;
+    } catch (err) {
+      console.error("No se pudo verificar MP_ACCESS_TOKEN:", err.message);
+      return false;
+    }
+  }
+
+  // Token del negocio (descifrado), renovándolo si vence en menos de 7 días.
+  async function workshopMpToken(store, payCfg, wsId) {
+    const row = await store.getMpConnectionRow(wsId);
+    if (!row || !payCfg.encKey) return null;
+    try {
+      let accessToken = await auth.decryptSecret(row.access_token_enc, payCfg.encKey);
+      let liveMode = Boolean(row.live_mode);
+      if (row.expires_at - Date.now() < 7 * DAY && payCfg.oauthEnabled) {
+        try {
+          const refreshToken = await auth.decryptSecret(row.refresh_token_enc, payCfg.encKey);
+          const data = await mpClient.refreshToken(payCfg, { refreshToken });
+          await saveConnection(store, payCfg, wsId, data);
+          accessToken = data.access_token;
+          liveMode = Boolean(data.live_mode);
+        } catch (err) {
+          console.error(`No se pudo renovar el token MP del negocio ${wsId}:`, err.message);
+          if (row.expires_at < Date.now()) return null;
+        }
+      }
+      return { accessToken, liveMode };
+    } catch (err) {
+      console.error(`No se pudo leer la conexión MP del negocio ${wsId}:`, err.message);
+      return null;
+    }
+  }
+
+  async function saveConnection(store, payCfg, wsId, data) {
+    await store.saveMpConnection(wsId, {
+      mpUserId: data.user_id,
+      accessTokenEnc: await auth.encryptSecret(data.access_token, payCfg.encKey),
+      refreshTokenEnc: await auth.encryptSecret(data.refresh_token || "", payCfg.encKey),
+      publicKey: data.public_key,
+      liveMode: data.live_mode,
+      expiresAt: Date.now() + (Number(data.expires_in) || 180 * 24 * 3600) * 1000
+    });
+  }
+
+  // ¿Con qué cuenta se cobra la seña de este negocio?
+  //   live/test → cuenta conectada del negocio (o token global de PRUEBA) · demo → sin cobro · off → no se ofrece
+  async function resolveCollector(store, payCfg, wsId) {
+    const own = await workshopMpToken(store, payCfg, wsId);
+    if (own) return { mode: own.liveMode ? "live" : "test", token: own.accessToken };
+    if (payCfg.globalToken && (await globalTokenIsTest(payCfg.globalToken))) {
+      return { mode: "test", token: payCfg.globalToken };
+    }
+    return { mode: payCfg.demoTools ? "demo" : "off", token: null };
+  }
+
+  async function approveFromMpPayment(store, payCfg, paymentId, { quote, workshop, token }) {
+    const payment = await mpClient.getPayment(payCfg, paymentId, token);
     const problem = payments.validatePaymentForQuote(payment, quote, workshop, payCfg);
-    if (problem) return { ok: false, reason: problem, quote };
+    if (problem) return { ok: false, reason: problem };
     const result = await store.approveQuote(quote.id, {
       method: "Mercado Pago",
       provider: "mercadopago",
@@ -274,6 +337,7 @@ export function createApiHandler(options = {}) {
     });
     return { ok: true, quote: result.quote };
   }
+
 
   async function stateFor(store, wsId) {
     const state = await store.getState(wsId);
@@ -291,8 +355,28 @@ export function createApiHandler(options = {}) {
       return json(200, {
         demoTools,
         demoLogin: demoTools ? { email: DEMO_EMAIL, password: DEMO_PASSWORD } : null,
-        payments: { mercadoPago: payCfg.mode }
+        payments: { connectAvailable: payCfg.oauthEnabled }
       });
+    }
+
+    // Vuelta desde Mercado Pago después de que el negocio autorizó a Coti (OAuth).
+    // El "state" de un solo uso identifica al negocio y evita que alguien conecte su cuenta a otro.
+    if (pathname === "/api/mp/callback" && method === "GET") {
+      if (!payCfg.oauthEnabled) return redirect("/?mp=no-disponible");
+      const state = str(url.searchParams.get("state"), 100);
+      const code = str(url.searchParams.get("code"), 300);
+      const wsId = state ? await store.consumeOAuthState(state) : null;
+      if (!wsId) return redirect("/?mp=error");
+      if (!code) return redirect("/?mp=cancelado");
+      try {
+        const data = await mpClient.exchangeCode(payCfg, { code, redirectUri: `${baseUrl}/api/mp/callback` });
+        if (!data || !data.access_token || !data.user_id) throw new Error("Respuesta sin token");
+        await saveConnection(store, payCfg, wsId, data);
+        return redirect("/?mp=conectado");
+      } catch (err) {
+        console.error("Error conectando Mercado Pago:", err.message);
+        return redirect("/?mp=error");
+      }
     }
 
     if (pathname === "/api/auth/register" && method === "POST") {
@@ -305,9 +389,9 @@ export function createApiHandler(options = {}) {
       const password = String(body.password || "");
       if (password.length < 8) throw new HttpError(400, "La contraseña debe tener al menos 8 caracteres.");
       if (password.length > 200) throw new HttpError(400, "Contraseña demasiado larga.");
-      const workshopName = requiredStr(body.workshopName, "nombre del taller o empresa", 120);
+      const workshopName = requiredStr(body.workshopName, "nombre del negocio", 120);
       const ownerName = requiredStr(body.ownerName, "tu nombre", 120);
-      const phone = validPhone(body.phone, "WhatsApp del taller");
+      const phone = validPhone(body.phone, "WhatsApp del negocio");
       if (await store.findUserByEmail(email)) throw new HttpError(409, "Ya existe una cuenta con ese email.");
 
       let account;
@@ -361,7 +445,8 @@ export function createApiHandler(options = {}) {
     if ((m = pathname.match(/^\/api\/public\/quote\/([A-Za-z0-9_-]{6,40})$/)) && method === "GET") {
       const found = await store.getQuoteByPublicId(m[1]);
       if (!found) throw new HttpError(404, "Presupuesto no encontrado");
-      return json(200, publicView(found.quote, found.workshop, payCfg));
+      const collector = await resolveCollector(store, payCfg, found.workshop.id);
+      return json(200, publicView(found.quote, found.workshop, collector.mode));
     }
 
     if (
@@ -373,38 +458,38 @@ export function createApiHandler(options = {}) {
       const { quote, workshop } = found;
       const action = m[2];
       const body = await parseBody(request);
+      const collector = await resolveCollector(store, payCfg, workshop.id);
+      const view = (q) => publicView(q, workshop, collector.mode);
 
-      if (quote.status === "approved") return json(200, publicView(quote, workshop, payCfg));
+      if (quote.status === "approved") return json(200, view(quote));
 
       if (action === "verify-payment") {
-        if (payCfg.mode !== "live") throw new HttpError(400, "Mercado Pago no está configurado.");
+        if (!collector.token) throw new HttpError(400, "Mercado Pago no está configurado.");
         const paymentId = str(body.paymentId, 40);
         if (!/^\d+$/.test(paymentId)) throw new HttpError(400, "Pago inválido.");
-        const result = await approveFromMpPayment(store, payCfg, paymentId);
-        if (!result.ok || !result.quote || result.quote.id !== quote.id) {
-          return json(200, { ...publicView(quote, workshop, payCfg), pending: true });
-        }
-        return json(200, publicView(result.quote, workshop, payCfg));
+        const result = await approveFromMpPayment(store, payCfg, paymentId, { quote, workshop, token: collector.token });
+        if (!result.ok) return json(200, { ...view(quote), pending: true });
+        return json(200, view(result.quote));
       }
 
-      if (isExpired(quote)) throw new HttpError(410, "Este presupuesto venció. Pedile al taller que lo actualice.");
+      if (isExpired(quote)) throw new HttpError(410, "Este presupuesto venció. Pedile al negocio que lo actualice.");
 
       if (action === "report-transfer") {
-        if (!(workshop.alias || workshop.cbu)) throw new HttpError(400, "El taller no cargó datos de transferencia.");
-        return json(200, publicView(await store.reportTransfer(quote.id), workshop, payCfg));
+        if (!(workshop.alias || workshop.cbu)) throw new HttpError(400, "El negocio no cargó datos de transferencia.");
+        return json(200, view(await store.reportTransfer(quote.id)));
       }
 
       // checkout con Mercado Pago
-      if (payCfg.mode === "off") throw new HttpError(400, "El pago con Mercado Pago no está disponible.");
-      if (payCfg.mode === "demo") {
+      if (collector.mode === "off") throw new HttpError(400, "El pago con Mercado Pago no está disponible.");
+      if (collector.mode === "demo") {
         const { quote: approved } = await store.approveQuote(quote.id, {
           method: "Mercado Pago (demo, sin cobro real)",
           provider: "demo"
         });
-        return json(200, publicView(approved, workshop, payCfg));
+        return json(200, view(approved));
       }
       try {
-        const pref = await mpClient.createPreference(payCfg, { quote, workshop, baseUrl });
+        const pref = await mpClient.createPreference(payCfg, { quote, workshop, baseUrl, accessToken: collector.token });
         return json(200, { redirectUrl: pref.initPoint });
       } catch (err) {
         console.error("Error creando preferencia MP:", err.message);
@@ -415,9 +500,9 @@ export function createApiHandler(options = {}) {
       }
     }
 
-    // Webhook de Mercado Pago: nunca se confía en el cuerpo, se re-consulta el pago a la API.
-    if (pathname === "/api/webhooks/mercadopago" && method === "POST") {
-      if (payCfg.mode !== "live") return json(404, { error: "No configurado" });
+    // Notificaciones de Mercado Pago. La ruta lleva el ID público del presupuesto: así se sabe de qué
+    // negocio es y con qué cuenta consultar el pago. Nunca se confía en el cuerpo: se re-consulta a la API.
+    if ((m = pathname.match(/^\/api\/webhooks\/mercadopago(?:\/([A-Za-z0-9_-]{6,40}))?$/)) && method === "POST") {
       const body = await parseBody(request).catch(() => ({}));
       const dataId = url.searchParams.get("data.id") || (body.data && body.data.id);
       const type = url.searchParams.get("type") || body.type;
@@ -428,19 +513,23 @@ export function createApiHandler(options = {}) {
         dataId
       });
       if (!validSig) return json(401, { error: "Firma inválida" });
-      if (type === "payment" && dataId && /^\d+$/.test(String(dataId))) {
-        try {
-          const r = await approveFromMpPayment(store, payCfg, String(dataId));
-          if (!r.ok) console.warn(`Webhook MP pago ${dataId} ignorado: ${r.reason}`);
-        } catch (err) {
-          console.error("Webhook MP error:", err.message);
-          return json(500, { error: "Reintentar" }); // Mercado Pago reintenta
-        }
+      if (type !== "payment" || !dataId || !/^\d+$/.test(String(dataId)) || !m[1]) return json(200, { ok: true });
+
+      const found = await store.getQuoteByPublicId(m[1]);
+      if (!found || found.quote.status === "approved") return json(200, { ok: true });
+      const collector = await resolveCollector(store, payCfg, found.workshop.id);
+      if (!collector.token) return json(200, { ok: true });
+      try {
+        const r = await approveFromMpPayment(store, payCfg, String(dataId), { ...found, token: collector.token });
+        if (!r.ok) console.warn(`Webhook MP pago ${dataId} ignorado: ${r.reason}`);
+      } catch (err) {
+        console.error("Webhook MP error:", err.message);
+        return json(500, { error: "Reintentar" }); // Mercado Pago reintenta
       }
       return json(200, { ok: true });
     }
 
-    // ====================== Panel del taller (con sesión) ======================
+    // ====================== Panel del negocio (con sesión) ======================
     const session = await requireSession(request, store);
     const ws = session.workshopId;
 
@@ -452,13 +541,26 @@ export function createApiHandler(options = {}) {
       return json(200, await stateFor(store, ws));
     }
 
+    // "Conectar Mercado Pago": lleva al negocio a autorizar a Coti con SU cuenta.
+    if (pathname === "/api/mp/connect" && method === "GET") {
+      if (!payCfg.oauthEnabled) return redirect("/?mp=no-disponible");
+      const state = auth.randomToken(24);
+      await store.createOAuthState(ws, state);
+      return redirect(payments.authorizationUrl(payCfg, { state, redirectUri: `${baseUrl}/api/mp/callback` }));
+    }
+
+    if (pathname === "/api/mp/disconnect" && method === "POST") {
+      await store.deleteMpConnection(ws);
+      return json(200, { state: await stateFor(store, ws) });
+    }
+
     if (pathname === "/api/workshop" && method === "PUT") {
       const body = await parseBody(request);
       const current = await store.getWorkshop(ws);
       await store.updateWorkshop(ws, {
-        name: requiredStr(body.name ?? current.name, "nombre del taller", 120),
+        name: requiredStr(body.name ?? current.name, "nombre del negocio", 120),
         owner: requiredStr(body.owner ?? current.owner, "responsable", 120),
-        phone: validPhone(body.phone ?? current.phone, "WhatsApp del taller"),
+        phone: validPhone(body.phone ?? current.phone, "WhatsApp del negocio"),
         alias: str(body.alias ?? current.alias, 60),
         cbu: str(body.cbu ?? current.cbu, 40).replace(/\s/g, ""),
         defaultDepositPct: intInRange(body.defaultDepositPct ?? current.defaultDepositPct, 0, 100, 40),

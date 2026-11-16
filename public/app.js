@@ -1,6 +1,6 @@
 // ============================================================================
 // COTI CRM — Frontend Mobile-First ("Anti-Plantilla IA" · Human-First Design)
-// Con Selector de Rol: 👷 Dueño del Taller vs 👤 Cliente Final
+// Con Selector de Rol: 👷 Dueño del Negocio vs 👤 Cliente Final
 // ============================================================================
 
 const HOUR_48_MS = 48 * 3600 * 1000;
@@ -157,7 +157,7 @@ async function handleRegister(e) {
     });
     document.getElementById("regPassword").value = "";
     await fetchAppState();
-    showToast("¡Cuenta creada! Cargá tu alias o CBU en ⚙️ Mi taller para cobrar señas.");
+    showToast("¡Cuenta creada! Cargá tu alias o CBU en ⚙️ Mi negocio para cobrar señas.");
   } catch (err) {
     setAuthError(err.message);
   }
@@ -172,7 +172,7 @@ async function handleLogout() {
 }
 
 // ============================================================================
-// AJUSTES DEL TALLER
+// AJUSTES DEL NEGOCIO
 // ============================================================================
 function openSettingsModal() {
   const w = appState.workshop || {};
@@ -186,7 +186,36 @@ function openSettingsModal() {
   document.getElementById("settingsAccountInfo").textContent = w.trialEndsAt
     ? `Prueba gratis hasta el ${formatDate(w.trialEndsAt)}.`
     : "";
+  renderMpConnectStatus();
   document.getElementById("settingsModal").classList.add("open");
+}
+
+// Estado de "Conectar Mercado Pago": cada negocio cobra las señas en SU cuenta.
+function renderMpConnectStatus() {
+  const box = document.getElementById("mpConnectStatus");
+  if (!box) return;
+  const mp = (appState.workshop && appState.workshop.mercadoPago) || { connected: false };
+  const available = Boolean(appConfig.payments && appConfig.payments.connectAvailable);
+
+  if (mp.connected) {
+    box.innerHTML = `
+      <span class="mp-connected-pill">✓ Mercado Pago conectado${mp.liveMode ? "" : " (cuenta de prueba)"}</span>
+      <span>Las señas que pagan tus clientes con Mercado Pago entran directo en tu cuenta (usuario ${esc(mp.mpUserId)}).</span>
+      <button type="button" class="btn btn-ghost" onclick="disconnectMercadoPago()">Desconectar</button>`;
+  } else if (available) {
+    box.innerHTML = `
+      <span>Conectá tu cuenta y tus clientes van a poder pagar la seña con tarjeta, débito o dinero en cuenta. La plata entra directo en tu Mercado Pago: Coti no la toca.</span>
+      <a href="/api/mp/connect" class="btn btn-primary">Conectar Mercado Pago</a>`;
+  } else {
+    box.innerHTML = `
+      <span>Muy pronto vas a poder conectar tu Mercado Pago. Mientras tanto, tus clientes pueden transferirte la seña al alias o CBU de arriba.</span>`;
+  }
+}
+
+async function disconnectMercadoPago() {
+  if (!window.confirm("¿Desconectar Mercado Pago? Tus clientes ya no van a poder pagar la seña con tarjeta hasta que lo vuelvas a conectar.")) return;
+  const data = await runAction("POST", "/api/mp/disconnect", null, "Mercado Pago desconectado.");
+  if (data) renderMpConnectStatus();
 }
 
 function closeSettingsModal() {
@@ -210,7 +239,7 @@ async function handleSaveSettings(e) {
   appState = data.state;
   renderAll();
   closeSettingsModal();
-  showToast("✓ Datos del taller guardados.");
+  showToast("✓ Datos del negocio guardados.");
 }
 
 // ============================================================================
@@ -368,7 +397,7 @@ function switchRoleMode(mode, quoteCode = null) {
     banner.className = "role-context-banner workshop-mode";
     banner.innerHTML = `
       <span>
-        <strong>👷 Estás en la Vista del Dueño del Taller:</strong> Esta es tu app privada en el celular para crear presupuestos en 60 segundos, ver cuánta plata tenés en la calle y mandar recordatorios a las 48hs.
+        <strong>👷 Estás en la Vista del Dueño del Negocio:</strong> Esta es tu app privada en el celular para crear presupuestos en 60 segundos, ver cuánta plata tenés en la calle y mandar recordatorios a las 48hs.
       </span>
     `;
     workshopWrap.style.display = "block";
@@ -460,7 +489,7 @@ function renderInlineClientView() {
 
   container.innerHTML = `
     <article class="remito-sheet">
-      <!-- Membrete Oficial del Taller que ve el cliente -->
+      <!-- Membrete Oficial del Negocio que ve el cliente -->
       <header class="remito-letterhead">
         <div class="remito-brand">
           <img src="/assets/coti-badge.jpg" alt="Sello Coti" class="remito-stamp" />
@@ -468,7 +497,7 @@ function renderInlineClientView() {
             <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #1E4D3B;">
               Presupuesto Oficial de Servicio
             </div>
-            <h1 style="font-size: 1.2rem; font-weight: 800;">${esc(workshop.name || "Taller")}</h1>
+            <h1 style="font-size: 1.2rem; font-weight: 800;">${esc(workshop.name || "Negocio")}</h1>
             <div style="font-size: 0.82rem; color: #4A4843;">
               Resp: ${esc(workshop.owner)} · WhatsApp ${esc(workshop.phone)}
             </div>
@@ -555,7 +584,7 @@ function renderInlineClientView() {
             </div>
             <div style="margin-top: 12px;" class="no-print">
               <button type="button" class="btn btn-primary" onclick="goBackToWorkshopApproved()">
-                👷 Ver en el Tablero del Taller ("Listas / Seña Pagada") →
+                👷 Ver en el Tablero del Negocio ("Listas / Seña Pagada") →
               </button>
             </div>
           </div>
@@ -563,7 +592,7 @@ function renderInlineClientView() {
             : `
           <div class="preview-note no-print">
             👁️ <strong>Vista previa.</strong> Acá tu cliente ve el botón <em>"Aceptar presupuesto y señar ${formatUsd(currentQuote.depositAmount)}"</em>
-            ${workshop.alias || workshop.cbu ? "y tus datos de transferencia" : "(cargá tu alias o CBU en ⚙️ Mi taller para que también pueda transferirte)"}.
+            ${workshop.alias || workshop.cbu ? "y tus datos de transferencia" : "(cargá tu alias o CBU en ⚙️ Mi negocio para que también pueda transferirte)"}.
             El pago solo se hace desde el link real.
           </div>
         `
@@ -577,7 +606,7 @@ function renderInlineClientView() {
             📄 Descargar PDF / Imprimir con membrete
           </button>
           <a href="${waQuestionUrl}" target="_blank" rel="noopener" class="btn btn-secondary">
-            💬 Hacerle una pregunta al taller por WhatsApp
+            💬 Hacerle una pregunta al negocio por WhatsApp
           </a>
         </div>
       </section>
@@ -592,7 +621,7 @@ function goBackToWorkshopApproved() {
 }
 
 // ============================================================================
-// CARGA DE ESTADO Y VISTA DEL TALLER
+// CARGA DE ESTADO Y VISTA DEL NEGOCIO
 // ============================================================================
 async function fetchAppState() {
   try {
@@ -684,7 +713,7 @@ function renderCotiAssistantBar() {
     const overdueSum = overdueQuotes.reduce((acc, q) => acc + Number(q.total || 0), 0);
     bar.classList.add("has-alerts");
     speech.innerHTML = `
-      <strong>¡Atención en el taller!</strong> Tenés <strong>${overdueQuotes.length} cliente(s)</strong> que recibieron presupuesto hace más de 48 horas y todavía no respondieron (<span class="mono">${formatUsd(overdueSum)}</span> en juego).
+      <strong>¡Atención!</strong> Tenés <strong>${overdueQuotes.length} cliente(s)</strong> que recibieron presupuesto hace más de 48 horas y todavía no respondieron (<span class="mono">${formatUsd(overdueSum)}</span> en juego).
     `;
     action.innerHTML = `
       <button type="button" class="btn btn-amber" onclick="focusOverdueQuotes()">
@@ -772,7 +801,7 @@ function build48hWhatsAppLink(quote) {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 }
 
-// Renderizado del Tablero "Inbox Zero" del Dueño del Taller
+// Renderizado del Tablero "Inbox Zero" del Dueño del Negocio
 function renderInboxBoard() {
   const container = document.getElementById("quotesListContainer");
   const now = Date.now();
@@ -880,7 +909,7 @@ function renderInboxBoard() {
 
           ${
             q.voiceTranscript
-              ? `<div class="voice-note-pill">🎙️ <strong>Tu nota de voz en taller:</strong> "${esc(q.voiceTranscript)}"</div>`
+              ? `<div class="voice-note-pill">🎙️ <strong>Tu nota de voz:</strong> "${esc(q.voiceTranscript)}"</div>`
               : ""
           }
 
@@ -903,7 +932,7 @@ function renderInboxBoard() {
           ${
             isOverdue48h
               ? `
-            <!-- EL SUPERPODER: EL BOTÓN DE LAS 48 HORAS (Acción del Dueño del Taller) -->
+            <!-- EL SUPERPODER: EL BOTÓN DE LAS 48 HORAS (Acción del Dueño del Negocio) -->
             <div class="superpower-48h-box">
               <div class="superpower-header">
                 <span>⚡ PASARON +48 HORAS SIN RESPUESTA DEL CLIENTE</span>
@@ -926,7 +955,7 @@ function renderInboxBoard() {
               : ""
           }
 
-          <!-- Acciones Reales del Dueño del Taller -->
+          <!-- Acciones Reales del Dueño del Negocio -->
           <div class="quote-actions">
             ${
               q.status === "draft"
@@ -1141,7 +1170,7 @@ async function handleAddCatalogItem(e) {
 
   if (!title || !price) return;
 
-  const data = await runAction("POST", "/api/catalog", { title, category, price, description }, "✓ Combo guardado en el catálogo de taller.");
+  const data = await runAction("POST", "/api/catalog", { title, category, price, description }, "✓ Combo guardado en el catálogo.");
   if (data) {
     document.getElementById("catTitle").value = "";
     document.getElementById("catCategory").value = "";
@@ -1587,8 +1616,20 @@ window.addEventListener("appinstalled", () => {
 function handleLaunchAction() {
   const params = new URLSearchParams(window.location.search);
   const action = params.get("accion");
-  if (params.has("accion") || params.has("origen")) {
+  const mpResult = params.get("mp");
+  if (params.has("accion") || params.has("origen") || mpResult) {
     window.history.replaceState(null, "", "/");
+  }
+  // Vuelta de "Conectar Mercado Pago"
+  const mpMessages = {
+    conectado: "✓ ¡Mercado Pago conectado! Las señas ahora entran directo en tu cuenta.",
+    cancelado: "No se conectó Mercado Pago. Podés intentarlo de nuevo desde ⚙️ Mi negocio.",
+    error: "⚠️ No pudimos conectar Mercado Pago. Probá de nuevo en unos minutos.",
+    "no-disponible": "La conexión con Mercado Pago todavía no está disponible."
+  };
+  if (mpResult && mpMessages[mpResult]) {
+    showToast(mpMessages[mpResult]);
+    if (mpResult === "conectado" || mpResult === "error") openSettingsModal();
   }
   if (action === "nueva") openNewQuoteModal();
   else if (action === "48hs") {

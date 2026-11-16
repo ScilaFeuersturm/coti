@@ -15,6 +15,7 @@ function makeApp(vars = {}, options = {}) {
   return { env, handler };
 }
 
+
 // Cliente mínimo que conserva la cookie de sesión.
 function agent({ env, handler }) {
   let cookie = "";
@@ -239,7 +240,7 @@ describe("Modo producción", () => {
   test("sin cuenta demo, sin reset, sin adelantar reloj y sin MP falso", async () => {
     const cfg = await agent(app)("GET", "/api/config");
     assert.equal(cfg.data.demoLogin, null);
-    assert.equal(cfg.data.payments.mercadoPago, "off");
+    assert.equal(cfg.data.payments.connectAvailable, false);
     const login = await agent(app)("POST", "/api/auth/login", { email: "demo@coti.app", password: "coti-demo-1234" });
     assert.equal(login.status, 401);
 
@@ -248,6 +249,7 @@ describe("Modo producción", () => {
     assert.equal((await a("POST", "/api/reset")).status, 404);
     assert.equal((await a("POST", `/api/quotes/${data.quote.id}/age48h`)).status, 404);
     assert.equal((await agent(app)("POST", `/api/public/quote/${data.quote.publicId}/checkout`, {})).status, 400);
+    assert.equal((await agent(app)("GET", `/api/public/quote/${data.quote.publicId}`)).data.paymentOptions.mercadoPago, "off");
   });
 
   test("el registro se limita por IP", async () => {
@@ -261,18 +263,41 @@ describe("Modo producción", () => {
   });
 });
 
-describe("Mercado Pago en modo live (API simulada)", () => {
+describe("Mercado Pago", () => {
   const SECRET = "secreto-webhook";
-  const fakePayments = {};
-  const mpClient = {
-    createPreference: async (cfg, { quote }) => ({ initPoint: `https://mp.test/checkout/${quote.id}` }),
-    getPayment: async (cfg, id) => fakePayments[id]
-  };
-  const app = makeApp(
-    { ENVIRONMENT: "production", MP_ACCESS_TOKEN: "TEST-123", MP_WEBHOOK_SECRET: SECRET, MP_CURRENCY: "ARS", MP_FX_RATE: "1000" },
-    { mpClient }
-  );
-  const pub = agent(app);
+  const ENC_KEY = Buffer.alloc(32, 7).toString("base64url");
+  const SELLER_TOKEN = "APP_USR-token-del-negocio";
+
+  // API de Mercado Pago simulada. Cada pago solo se puede leer con el token de la cuenta que lo cobró.
+  function fakeMp() {
+    const calls = { preferences: [], exchanges: [] };
+    const paymentsById = {};
+    const client = {
+      calls,
+      paymentsById,
+      createPreference: async (cfg, { quote, accessToken }) => {
+        calls.preferences.push({ quoteId: quote.id, accessToken });
+        return { initPoint: `https://mp.test/checkout/${quote.id}` };
+      },
+      getPayment: async (cfg, id, token) => {
+        const p = paymentsById[id];
+        if (!p || p._token !== token) {
+          const err = new Error("Mercado Pago respondió 404: not found");
+          err.status = 404;
+          throw err;
+        }
+        return p;
+      },
+      isTestToken: async (token) => token.startsWith("TEST-"),
+      exchangeCode: async (cfg, { code }) => {
+        calls.exchanges.push(code);
+        if (code !== "codigo-valido") throw new Error("invalid_grant");
+        return { access_token: SELLER_TOKEN, refresh_token: "refresh-del-negocio", user_id: 999, public_key: "APP_USR-pk", live_mode: true, expires_in: 15552000 };
+      },
+      refreshToken: async () => ({ access_token: SELLER_TOKEN, refresh_token: "refresh-2", user_id: 999, live_mode: true, expires_in: 15552000 })
+    };
+    return client;
+  }
 
   function signed(dataId) {
     const ts = String(Date.now());
@@ -281,53 +306,171 @@ describe("Mercado Pago en modo live (API simulada)", () => {
     return { "x-signature": `ts=${ts},v1=${v1}`, "x-request-id": reqId };
   }
 
-  const hook = (id, headers) =>
-    pub("POST", `/api/webhooks/mercadopago?data.id=${id}&type=payment`, { type: "payment", data: { id: String(id) } }, headers);
+  const hook = (call, publicId, id, headers = {}) =>
+    call("POST", `/api/webhooks/mercadopago/${publicId}?data.id=${id}&type=payment`, { type: "payment", data: { id: String(id) } }, headers);
 
-  test("checkout devuelve la URL de pago y no aprueba nada todavía", async () => {
-    const a = await register(app);
-    const { data } = await a("POST", "/api/quotes", sampleQuote);
-    const r = await pub("POST", `/api/public/quote/${data.quote.publicId}/checkout`, {});
-    assert.equal(r.data.redirectUrl, `https://mp.test/checkout/${data.quote.id}`);
-    assert.equal((await pub("GET", `/api/public/quote/${data.quote.publicId}`)).data.quote.status, "waiting_reply");
+  describe("token global de PRUEBA", () => {
+    const mp = fakeMp();
+    const app = makeApp(
+      { ENVIRONMENT: "production", MP_ACCESS_TOKEN: "TEST-123", MP_WEBHOOK_SECRET: SECRET, MP_CURRENCY: "ARS", MP_FX_RATE: "1000" },
+      { mpClient: mp }
+    );
+    const pub = agent(app);
+
+    test("checkout devuelve la URL de pago y no aprueba nada todavía", async () => {
+      const a = await register(app);
+      const { data } = await a("POST", "/api/quotes", sampleQuote);
+      assert.equal((await pub("GET", `/api/public/quote/${data.quote.publicId}`)).data.paymentOptions.mercadoPago, "test");
+      const r = await pub("POST", `/api/public/quote/${data.quote.publicId}/checkout`, {});
+      assert.equal(r.data.redirectUrl, `https://mp.test/checkout/${data.quote.id}`);
+      assert.equal(mp.calls.preferences.at(-1).accessToken, "TEST-123");
+      assert.equal((await pub("GET", `/api/public/quote/${data.quote.publicId}`)).data.quote.status, "waiting_reply");
+    });
+
+    test("webhook con firma inválida se rechaza", async () => {
+      const a = await register(app);
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      assert.equal((await hook(pub, q.publicId, 1, { "x-signature": "ts=1,v1=deadbeef", "x-request-id": "abc" })).status, 401);
+    });
+
+    test("webhook firmado aprueba solo si MP confirma el pago por el monto correcto", async () => {
+      const a = await register(app);
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote; // seña 120 USD = 120000 ARS
+      mp.paymentsById["111"] = { _token: "TEST-123", id: 111, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 500 };
+      await hook(pub, q.publicId, 111, signed("111"));
+      assert.equal((await a("GET", "/api/state")).data.quotes[0].status, "waiting_reply", "monto insuficiente no aprueba");
+
+      mp.paymentsById["222"] = { _token: "TEST-123", id: 222, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      assert.equal((await hook(pub, q.publicId, 222, signed("222"))).status, 200);
+      const s = await a("GET", "/api/state");
+      assert.equal(s.data.quotes[0].status, "approved");
+      assert.equal(s.data.quotes[0].paymentMethod, "Mercado Pago");
+      assert.equal((await hook(pub, q.publicId, 222, signed("222"))).status, 200, "reintento idempotente");
+    });
+
+    test("al volver de MP, verify-payment confirma el pago (sirve sin webhook)", async () => {
+      const a = await register(app);
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      mp.paymentsById["333"] = { _token: "TEST-123", id: 333, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      assert.equal((await pub("POST", `/api/public/quote/${q.publicId}/verify-payment`, { paymentId: "333" })).data.quote.status, "approved");
+    });
+
+    test("un pago de OTRO presupuesto no aprueba este (ni por verify ni por webhook)", async () => {
+      const a = await register(app);
+      const q1 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      const q2 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      mp.paymentsById["444"] = { _token: "TEST-123", id: 444, status: "approved", external_reference: q1.id, currency_id: "ARS", transaction_amount: 120000 };
+      assert.equal((await pub("POST", `/api/public/quote/${q2.publicId}/verify-payment`, { paymentId: "444" })).data.quote.status, "waiting_reply");
+      await hook(pub, q2.publicId, 444, signed("444"));
+      const s = await a("GET", "/api/state");
+      assert.equal(s.data.quotes.find((x) => x.id === q2.id).status, "waiting_reply");
+    });
   });
 
-  test("webhook con firma inválida se rechaza", async () => {
-    assert.equal((await hook(1, { "x-signature": "ts=1,v1=deadbeef", "x-request-id": "abc" })).status, 401);
+  describe("token global de PRODUCCIÓN", () => {
+    test("se ignora: la seña de un negocio nunca se cobra con la cuenta de la plataforma", async () => {
+      const mp = fakeMp();
+      const app = makeApp({ ENVIRONMENT: "production", MP_ACCESS_TOKEN: "APP_USR-plataforma-real" }, { mpClient: mp });
+      const a = await register(app);
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      const pub = agent(app);
+      assert.equal((await pub("GET", `/api/public/quote/${q.publicId}`)).data.paymentOptions.mercadoPago, "off");
+      assert.equal((await pub("POST", `/api/public/quote/${q.publicId}/checkout`, {})).status, 400);
+      assert.equal(mp.calls.preferences.length, 0);
+    });
   });
 
-  test("webhook firmado aprueba solo si MP confirma el pago por el monto correcto", async () => {
-    const a = await register(app);
-    const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote; // seña 120 USD = 120000 ARS
+  describe("Conectar Mercado Pago (cada negocio cobra en su cuenta)", () => {
+    const mp = fakeMp();
+    const app = makeApp(
+      {
+        ENVIRONMENT: "production",
+        MP_ACCESS_TOKEN: "TEST-plataforma",
+        MP_CLIENT_ID: "123456",
+        MP_CLIENT_SECRET: "secreto-app",
+        TOKEN_ENCRYPTION_KEY: ENC_KEY,
+        MP_CURRENCY: "ARS",
+        MP_FX_RATE: "1000"
+      },
+      { mpClient: mp }
+    );
+    const pub = agent(app);
 
-    fakePayments["111"] = { id: 111, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 500 };
-    await hook(111, signed("111"));
-    assert.equal((await a("GET", "/api/state")).data.quotes[0].status, "waiting_reply", "monto insuficiente no aprueba");
+    async function connect(call) {
+      const r = await call("GET", "/api/mp/connect");
+      assert.equal(r.status, 302);
+      const authUrl = new URL(r.headers.get("location"));
+      assert.equal(authUrl.host, "auth.mercadopago.com");
+      assert.equal(authUrl.searchParams.get("client_id"), "123456");
+      assert.equal(authUrl.searchParams.get("redirect_uri"), "https://coti.test/api/mp/callback");
+      return authUrl.searchParams.get("state");
+    }
 
-    fakePayments["222"] = { id: 222, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
-    assert.equal((await hook(222, signed("222"))).status, 200);
-    const s = await a("GET", "/api/state");
-    assert.equal(s.data.quotes[0].status, "approved");
-    assert.equal(s.data.quotes[0].paymentMethod, "Mercado Pago");
+    test("conecta la cuenta, guarda los tokens cifrados y cobra con el token del negocio", async () => {
+      const a = await register(app);
+      assert.equal((await agent(app)("GET", "/api/config")).data.payments.connectAvailable, true);
 
-    assert.equal((await hook(222, signed("222"))).status, 200, "reintento idempotente");
-  });
+      const state = await connect(a);
+      const cb = await a("GET", `/api/mp/callback?code=codigo-valido&state=${state}`);
+      assert.equal(cb.status, 302);
+      assert.equal(cb.headers.get("location"), "/?mp=conectado");
 
-  test("al volver de MP, verify-payment confirma el pago (sirve sin webhook)", async () => {
-    const a = await register(app);
-    const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
-    fakePayments["333"] = { id: 333, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
-    const r = await pub("POST", `/api/public/quote/${q.publicId}/verify-payment`, { paymentId: "333" });
-    assert.equal(r.data.quote.status, "approved");
-  });
+      const s = await a("GET", "/api/state");
+      assert.deepEqual(
+        { connected: s.data.workshop.mercadoPago.connected, mpUserId: s.data.workshop.mercadoPago.mpUserId, liveMode: s.data.workshop.mercadoPago.liveMode },
+        { connected: true, mpUserId: "999", liveMode: true }
+      );
+      assert.ok(!JSON.stringify(s.data).includes(SELLER_TOKEN), "el token no viaja al navegador");
 
-  test("verify-payment con un pago de OTRO presupuesto no aprueba este", async () => {
-    const a = await register(app);
-    const q1 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
-    const q2 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
-    fakePayments["444"] = { id: 444, status: "approved", external_reference: q1.id, currency_id: "ARS", transaction_amount: 120000 };
-    const r = await pub("POST", `/api/public/quote/${q2.publicId}/verify-payment`, { paymentId: "444" });
-    assert.equal(r.data.quote.status, "waiting_reply");
+      const row = await app.env.DB.prepare("SELECT * FROM mp_connections WHERE workshop_id = ?").bind(s.data.workshop.id).first();
+      assert.ok(row.access_token_enc.startsWith("v1."));
+      assert.ok(!row.access_token_enc.includes(SELLER_TOKEN), "en la base el token está cifrado");
+
+      // El presupuesto de este negocio se cobra con SU token, no con el de la plataforma
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
+      assert.equal((await pub("GET", `/api/public/quote/${q.publicId}`)).data.paymentOptions.mercadoPago, "live");
+      await pub("POST", `/api/public/quote/${q.publicId}/checkout`, {});
+      assert.equal(mp.calls.preferences.at(-1).accessToken, SELLER_TOKEN);
+
+      // El webhook consulta el pago con el token del negocio
+      mp.paymentsById["555"] = { _token: SELLER_TOKEN, id: 555, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      assert.equal((await hook(pub, q.publicId, 555)).status, 200);
+      assert.equal((await a("GET", "/api/state")).data.quotes[0].status, "approved");
+    });
+
+    test("un negocio sin conectar sigue usando el token global de prueba, no el de otro negocio", async () => {
+      const b = await register(app);
+      const q = (await b("POST", "/api/quotes", sampleQuote)).data.quote;
+      assert.equal((await pub("GET", `/api/public/quote/${q.publicId}`)).data.paymentOptions.mercadoPago, "test");
+      await pub("POST", `/api/public/quote/${q.publicId}/checkout`, {});
+      assert.equal(mp.calls.preferences.at(-1).accessToken, "TEST-plataforma");
+    });
+
+    test("el state es de un solo uso y uno inventado no conecta nada", async () => {
+      const a = await register(app);
+      const state = await connect(a);
+      assert.equal((await a("GET", `/api/mp/callback?code=codigo-valido&state=${state}`)).headers.get("location"), "/?mp=conectado");
+      assert.equal((await a("GET", `/api/mp/callback?code=codigo-valido&state=${state}`)).headers.get("location"), "/?mp=error");
+      assert.equal((await agent(app)("GET", "/api/mp/callback?code=codigo-valido&state=inventado")).headers.get("location"), "/?mp=error");
+    });
+
+    test("si el negocio cancela o el código no sirve, no queda conectado", async () => {
+      const a = await register(app);
+      assert.equal((await a("GET", `/api/mp/callback?error=access_denied&state=${await connect(a)}`)).headers.get("location"), "/?mp=cancelado");
+      assert.equal((await a("GET", `/api/mp/callback?code=codigo-roto&state=${await connect(a)}`)).headers.get("location"), "/?mp=error");
+      assert.equal((await a("GET", "/api/state")).data.workshop.mercadoPago.connected, false);
+    });
+
+    test("desconectar borra la conexión", async () => {
+      const a = await register(app);
+      await a("GET", `/api/mp/callback?code=codigo-valido&state=${await connect(a)}`);
+      const r = await a("POST", "/api/mp/disconnect");
+      assert.equal(r.data.state.workshop.mercadoPago.connected, false);
+    });
+
+    test("sin sesión no se puede iniciar la conexión", async () => {
+      assert.equal((await agent(app)("GET", "/api/mp/connect")).status, 401);
+    });
   });
 });
 
@@ -345,7 +488,7 @@ describe("Worker: ruteo", () => {
     await worker.fetch(new Request(`${BASE}/styles.css`), env);
     assert.deepEqual(asked, ["/quote", "/styles.css"]);
     const api = await worker.fetch(new Request(`${BASE}/api/config`), env);
-    assert.equal((await api.json()).payments.mercadoPago, "off");
+    assert.equal((await api.json()).payments.connectAvailable, false);
   });
 });
 

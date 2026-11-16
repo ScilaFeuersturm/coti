@@ -21,7 +21,7 @@
 </head>
 <body>
   <!-- ========================================================================
-       ACCESO: Ingresar / Crear cuenta del taller
+       ACCESO: Ingresar / Crear cuenta del negocio
        ======================================================================== -->
   <div id="authScreen" class="auth-screen" style="display: none;">
     <div class="auth-card">
@@ -49,12 +49,12 @@
           <label class="field-label" for="loginPassword">Contraseña</label>
           <input type="password" id="loginPassword" class="field-input" autocomplete="current-password" required />
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Ingresar a mi taller</button>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar a mi negocio</button>
       </form>
 
       <form id="registerForm" class="auth-form" style="display: none;" onsubmit="handleRegister(event)">
         <div>
-          <label class="field-label" for="regWorkshop">Nombre del taller o empresa</label>
+          <label class="field-label" for="regWorkshop">Nombre del negocio</label>
           <input type="text" id="regWorkshop" class="field-input" placeholder="Ej: ClimaSur Instalaciones" required maxlength="120" />
         </div>
         <div>
@@ -62,7 +62,7 @@
           <input type="text" id="regOwner" class="field-input" placeholder="Ej: Martín Gómez" required maxlength="120" />
         </div>
         <div>
-          <label class="field-label" for="regPhone">WhatsApp del taller</label>
+          <label class="field-label" for="regPhone">WhatsApp del negocio</label>
           <input type="tel" id="regPhone" class="field-input mono" placeholder="+54 9 11 5555-1234" required />
         </div>
         <div>
@@ -87,7 +87,7 @@
 
   <div id="appRoot" style="display: none;">
   <!-- ========================================================================
-       SELECTOR DE ROL GLOBAL: 👷 Dueño del Taller vs 👤 Cliente Final
+       SELECTOR DE ROL GLOBAL: 👷 Dueño del Negocio vs 👤 Cliente Final
        ======================================================================== -->
   <div class="role-switcher-bar no-print">
     <div class="role-switcher-inner">
@@ -98,7 +98,7 @@
           class="role-tab-btn active-workshop"
           onclick="switchRoleMode('workshop')"
         >
-          👷 1. Vista Dueño del Taller (Tu App)
+          👷 1. Vista Dueño del Negocio (Tu App)
         </button>
         <button
           type="button"
@@ -112,14 +112,14 @@
 
       <div id="roleContextBanner" class="role-context-banner workshop-mode">
         <span>
-          <strong>Estás viendo como Dueño del Taller:</strong> Esta es tu app privada en el celular para armar presupuestos en 60s y controlar quién no te respondió a las 48hs.
+          <strong>Estás viendo como Dueño del Negocio:</strong> Esta es tu app privada en el celular para armar presupuestos en 60s y controlar quién no te respondió a las 48hs.
         </span>
       </div>
     </div>
   </div>
 
   <!-- ========================================================================
-       MODO 1: 👷 VISTA PRIVADA DEL DUEÑO DEL TALLER / PRESTADOR DE SERVICIO
+       MODO 1: 👷 VISTA PRIVADA DEL DUEÑO DEL NEGOCIO / PRESTADOR DE SERVICIO
        ======================================================================== -->
   <div id="workshopModeWrapper">
     <div class="app-shell">
@@ -133,7 +133,7 @@
             <div class="brand-titles">
               <div class="brand-name-row">
                 <span class="brand-name">Coti</span>
-                <span class="brand-badge">Panel del Taller</span>
+                <span class="brand-badge">Panel del Negocio</span>
               </div>
               <span class="workshop-subtitle" id="workshopHeaderName">ClimaSur & Reformas Integrales</span>
             </div>
@@ -141,8 +141,8 @@
 
           <div class="header-actions">
             <span id="trialPill" class="trial-pill" style="display: none;"></span>
-            <button type="button" class="btn btn-ghost" onclick="openSettingsModal()" title="Datos del taller, alias y CBU">
-              ⚙️ Mi taller
+            <button type="button" class="btn btn-ghost" onclick="openSettingsModal()" title="Datos del negocio, alias y CBU">
+              ⚙️ Mi negocio
             </button>
             <button type="button" class="btn btn-ghost" onclick="openMascotModal()" title="Ver mascota y plan">
               🐦 Coti Info
@@ -170,7 +170,7 @@
         </div>
       </div>
 
-      <!-- Módulo C: 3 Métricas Clave del Taller -->
+      <!-- Módulo C: 3 Métricas Clave del Negocio -->
       <section class="metrics-strip" aria-label="Métricas clave del mes">
         <div class="metric-card highlight-street">
           <span class="metric-label">1. Dinero en la calle</span>
@@ -196,13 +196,13 @@
             <img src="/assets/coti-mascot.jpg" alt="Coti el Hornero" />
           </div>
           <div class="coti-speech" id="cotiSpeechText">
-            Cargando estado del taller...
+            Cargando tu tablero...
           </div>
         </div>
         <div id="cotiAssistantAction"></div>
       </div>
 
-      <!-- Navegación entre Módulos del Taller -->
+      <!-- Navegación entre Módulos del Negocio -->
       <nav class="main-nav" aria-label="Secciones principales">
         <button type="button" class="nav-pill active" id="navBoard" onclick="switchMainSection('board')">
           📋 Tablero Inbox Zero
@@ -281,7 +281,7 @@
         <div class="panel-card">
           <h2 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 4px;">Agregar Nuevo Combo Preestablecido</h2>
           <p style="font-size: 0.84rem; color: var(--ink-secondary); margin-bottom: 12px;">
-            Guardá tus trabajos más frecuentes para cotizarlos en 1 toque desde la calle o el taller.
+            Guardá tus trabajos más frecuentes para cotizarlos en 1 toque desde la calle o el local.
           </p>
           <form onsubmit="handleAddCatalogItem(event)" class="form-grid form-grid-2">
             <div>
@@ -312,7 +312,7 @@
       </section>
     </div>
 
-    <!-- Barra Flotante Inferior del Dueño del Taller -->
+    <!-- Barra Flotante Inferior del Dueño del Negocio -->
     <div class="floating-bottom-bar no-print">
       <div class="floating-bottom-inner">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -357,12 +357,12 @@
   </div><!-- /appRoot -->
 
   <!-- ========================================================================
-       MODAL: AJUSTES DEL TALLER (membrete, WhatsApp, datos de transferencia)
+       MODAL: AJUSTES DEL NEGOCIO (membrete, WhatsApp, datos de transferencia)
        ======================================================================== -->
   <div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal-sheet" style="max-width: 560px;">
       <div class="modal-header">
-        <div class="modal-title-group"><strong>⚙️ Datos de mi taller</strong></div>
+        <div class="modal-title-group"><strong>⚙️ Datos de mi negocio</strong></div>
         <button type="button" class="btn btn-ghost" onclick="closeSettingsModal()">✕ Cerrar</button>
       </div>
       <form onsubmit="handleSaveSettings(event)">
@@ -372,7 +372,7 @@
           </p>
           <div class="form-grid form-grid-2">
             <div>
-              <label class="field-label" for="setName">Nombre del taller</label>
+              <label class="field-label" for="setName">Nombre del negocio</label>
               <input type="text" id="setName" class="field-input" required maxlength="120" />
             </div>
             <div>
@@ -380,12 +380,12 @@
               <input type="text" id="setOwner" class="field-input" required maxlength="120" />
             </div>
             <div>
-              <label class="field-label" for="setPhone">WhatsApp del taller</label>
+              <label class="field-label" for="setPhone">WhatsApp del negocio</label>
               <input type="tel" id="setPhone" class="field-input mono" required />
             </div>
             <div>
               <label class="field-label" for="setAlias">Alias para transferencias</label>
-              <input type="text" id="setAlias" class="field-input mono" maxlength="60" placeholder="MI.TALLER.MP" />
+              <input type="text" id="setAlias" class="field-input mono" maxlength="60" placeholder="MI.NEGOCIO.MP" />
             </div>
             <div>
               <label class="field-label" for="setCbu">CBU / CVU</label>
@@ -401,6 +401,10 @@
                 <input type="number" id="setValidity" class="field-input mono" min="1" max="90" />
               </div>
             </div>
+          </div>
+          <div class="mp-connect-box">
+            <div class="mp-connect-title">💳 Cobrar señas con Mercado Pago</div>
+            <div id="mpConnectStatus" class="mp-connect-body"></div>
           </div>
           <div id="settingsAccountInfo" style="font-size: 0.8rem; color: var(--ink-muted);"></div>
         </div>
@@ -487,7 +491,7 @@
   </div>
 
   <!-- ========================================================================
-       MODAL 1: COTIZACIÓN FLASH EN 3 CLICS (DEL DUEÑO DEL TALLER)
+       MODAL 1: COTIZACIÓN FLASH EN 3 CLICS (DEL DUEÑO DEL NEGOCIO)
        ======================================================================== -->
   <div id="newQuoteModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal-sheet">
@@ -544,13 +548,13 @@
           <!-- Nota de Voz Transcrita -->
           <div class="voice-box">
             <div class="voice-box-top">
-              <span style="font-size: 0.8rem; font-weight: 800;">🎙️ Nota de voz transcrita (manos ocupadas en taller)</span>
+              <span style="font-size: 0.8rem; font-weight: 800;">🎙️ Nota de voz transcrita (para cuando tenés las manos ocupadas)</span>
               <div style="display: flex; gap: 6px;">
                 <button type="button" id="voiceRecordBtn" class="btn btn-ghost" style="min-height: 34px; padding: 4px 10px;" onclick="toggleVoiceDictation()">
                   🎤 Dictar voz
                 </button>
                 <button type="button" class="btn btn-ghost" style="min-height: 34px; padding: 4px 10px;" onclick="simulateWorkshopVoiceNote()">
-                  ⚡ Ejemplo taller
+                  ⚡ Ejemplo
                 </button>
               </div>
             </div>
