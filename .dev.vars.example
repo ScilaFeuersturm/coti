@@ -1,0 +1,7 @@
+# Copiá este archivo como .dev.vars para desarrollo local (npm run dev). Nunca lo subas a git.
+ENVIRONMENT=development
+
+# Mercado Pago en modo prueba (credenciales TEST- del panel de desarrolladores):
+# MP_ACCESS_TOKEN=TEST-...
+# MP_WEBHOOK_SECRET=
+# MP_FX_RATE=1200

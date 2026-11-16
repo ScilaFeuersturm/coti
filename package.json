@@ -1,16 +1,30 @@
 {
   "name": "coti-crm",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Coti — CRM Ultraligero & Inbox Zero para Servicios Locales de Alto Ticket. Cotizá en 60 segundos desde tu celular, cerrá señas por link y asegurá el seguimiento sin pensar.",
-  "main": "server.js",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server.js",
-    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
-    "test": "node --disable-warning=ExperimentalWarning --test test/api.test.js"
+    "dev": "wrangler d1 migrations apply coti --local && wrangler dev",
+    "test": "node --disable-warning=ExperimentalWarning --test test/api.test.js",
+    "db:migrate:local": "wrangler d1 migrations apply coti --local",
+    "db:migrate:remote": "wrangler d1 migrations apply coti --remote",
+    "deploy": "npm test && wrangler d1 migrations apply coti --remote && wrangler deploy"
   },
-  "keywords": ["crm", "cotizaciones", "presupuestos", "whatsapp", "oficios", "pwa", "coti"],
-  "license": "MIT"
+  "keywords": [
+    "crm",
+    "cotizaciones",
+    "presupuestos",
+    "whatsapp",
+    "oficios",
+    "pwa",
+    "coti"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.163.0"
+  },
+  "type": "module",
+  "private": true
 }

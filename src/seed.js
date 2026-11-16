@@ -1,8 +1,9 @@
 // Datos iniciales realistas para Coti (Servicios Locales de Medio/Alto Ticket)
-const now = Date.now();
 const HOUR = 3600 * 1000;
 
-function getSeedData() {
+// Date.now() va dentro de la función: en Workers vale 0 si se evalúa al cargar el módulo.
+export function getSeedData() {
+  const now = Date.now();
   return {
     workshop: {
       name: "ClimaSur & Reformas Integrales",
@@ -271,5 +272,3 @@ function getSeedData() {
     ]
   };
 }
-
-module.exports = { getSeedData };

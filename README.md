@@ -8,29 +8,48 @@ Implementación completa de [PRODUCT_BRIEF.md](./PRODUCT_BRIEF.md) con **Coti, e
 
 ## 🚀 Cómo correr la aplicación
 
-Requiere **Node 22.13 o superior** (usa SQLite incluido en Node, sin dependencias externas).
+Coti corre en **Cloudflare Workers** con base de datos **D1**. Requiere Node 22.13+ para las herramientas.
 
 ```bash
-cd /Users/priscilagomez/Desktop/Coti
-npm start      # levanta el servidor en http://localhost:3456
-npm test       # corre los tests de la API
+npm install
+cp .dev.vars.example .dev.vars   # configuración local
+npm run dev                      # http://localhost:8787 (Worker + D1 local)
+npm test                         # tests de la API
 ```
 
-- **Panel del taller:** `http://localhost:3456`. Pide ingresar o crear una cuenta. Cada taller ve solo sus datos.
-- **Cuenta demo** (solo fuera de producción): `demo@coti.app` / `coti-demo-1234`, con presupuestos de ejemplo.
-- **Link público del cliente:** `http://localhost:3456/p/<id>`. Cada presupuesto tiene un ID aleatorio no adivinable; se copia desde "Abrir el link real del cliente".
-- **Datos:** `data/coti.sqlite`. Hacé copia de este archivo para respaldar.
+- **Panel del taller:** `/`. Pide ingresar o crear una cuenta. Cada taller ve solo sus datos.
+- **Cuenta demo** (solo en desarrollo): `demo@coti.app` / `coti-demo-1234`, con presupuestos de ejemplo.
+- **Link público del cliente:** `/p/<id>`. Cada presupuesto tiene un ID aleatorio no adivinable.
 
-### Configuración (`.env`)
+### Estructura
 
-Copiá [.env.example](./.env.example) como `.env`. Lo principal:
+| Ruta | Qué es |
+|---|---|
+| `src/worker.js` | Entrada del Worker: `/api/*` a la API, `/p/*` a la página del presupuesto, el resto archivos estáticos |
+| `src/app.js` | API (login, presupuestos, cobros, webhooks) |
+| `src/store.js` | Consultas a D1 |
+| `src/auth.js` / `src/payments.js` | Contraseñas y sesiones / Mercado Pago |
+| `migrations/` | Esquema de la base (se aplica con `wrangler d1 migrations apply`) |
+| `public/` | App web (PWA) que sirve Cloudflare |
+
+### Publicar en Cloudflare (primera vez)
+
+```bash
+npx wrangler login                       # con la cuenta de Cloudflare donde va Coti
+npx wrangler d1 create coti              # copiar el database_id que devuelve a wrangler.jsonc
+npm run deploy                           # tests + migraciones + publicar
+```
+
+### Configuración
+
+Variables no secretas en `wrangler.jsonc` (`vars`); para desarrollo se pisan con `.dev.vars`.
 
 | Variable | Para qué |
 |---|---|
-| `NODE_ENV=production` | Desactiva cuenta demo, reset y "adelantar 48hs"; cookie `Secure`. |
-| `PUBLIC_BASE_URL` | URL pública (https) para los links y el webhook de Mercado Pago. |
-| `MP_ACCESS_TOKEN` | Activa el cobro real de señas con Mercado Pago (usá uno `TEST-` para probar). |
-| `MP_WEBHOOK_SECRET` | Verifica la firma de las notificaciones de Mercado Pago. |
+| `ENVIRONMENT` | `production` desactiva cuenta demo, reset y "adelantar 48hs". |
+| `PUBLIC_BASE_URL` | Opcional: URL pública si se usa un dominio propio. |
+| `MP_ACCESS_TOKEN` | **Secreto.** Activa el cobro real de señas (`npx wrangler secret put MP_ACCESS_TOKEN`). |
+| `MP_WEBHOOK_SECRET` | **Secreto.** Verifica la firma de las notificaciones de Mercado Pago. |
 | `MP_CURRENCY` / `MP_FX_RATE` | Moneda de cobro (ARS) y conversión desde USD. |
 
 ### Cómo se cobra la seña

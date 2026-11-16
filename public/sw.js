@@ -1,9 +1,8 @@
 // Service worker de Coti: guarda la "cáscara" de la app para que abra sin señal.
 // Nunca guarda respuestas de /api (son datos privados del taller).
-const CACHE = "coti-shell-v3";
+const CACHE = "coti-shell-v4";
 const SHELL = [
   "/",
-  "/index.html",
   "/styles.css",
   "/app.js",
   "/manifest.json",
@@ -43,6 +42,6 @@ self.addEventListener("fetch", (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match("/index.html")))
+      .catch(() => caches.match(req).then((hit) => hit || caches.match("/")))
   );
 });
