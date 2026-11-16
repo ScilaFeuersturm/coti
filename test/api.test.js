@@ -400,7 +400,7 @@ describe("Mercado Pago", () => {
       const r = await call("GET", "/api/mp/connect");
       assert.equal(r.status, 302);
       const authUrl = new URL(r.headers.get("location"));
-      assert.equal(authUrl.host, "auth.mercadopago.com");
+      assert.equal(authUrl.host, "auth.mercadopago.com.ar");
       assert.equal(authUrl.searchParams.get("client_id"), "123456");
       assert.equal(authUrl.searchParams.get("redirect_uri"), "https://coti.test/api/mp/callback");
       return authUrl.searchParams.get("state");

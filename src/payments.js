@@ -11,7 +11,8 @@
 import { hmacSha256Hex, safeEqual } from "./auth.js";
 
 const MP_API = "https://api.mercadopago.com";
-const MP_AUTH = "https://auth.mercadopago.com/authorization";
+// Dominio de autorización por país (sin esto, Mercado Pago pide elegir el país antes de ingresar).
+const MP_AUTH_DEFAULT_DOMAIN = "auth.mercadopago.com.ar";
 
 export function getPaymentConfig(env, { demoTools }) {
   const clientId = String(env.MP_CLIENT_ID || "").trim();
@@ -28,6 +29,9 @@ export function getPaymentConfig(env, { demoTools }) {
     clientSecret,
     encKey,
     oauthEnabled: Boolean(clientId && clientSecret && encKey),
+    authDomain: /^auth\.mercadopago\.[a-z.]+$/.test(String(env.MP_AUTH_DOMAIN || ""))
+      ? String(env.MP_AUTH_DOMAIN)
+      : MP_AUTH_DEFAULT_DOMAIN,
     // Con credenciales de prueba, pide a MP tokens de prueba al conectar cuentas.
     oauthTestTokens: env.MP_OAUTH_TEST_TOKENS === "1"
   };
@@ -69,7 +73,7 @@ async function mpFetch(token, pathname, { method = "GET", body, idempotencyKey, 
 }
 
 export function authorizationUrl(cfg, { state, redirectUri }) {
-  const u = new URL(MP_AUTH);
+  const u = new URL(`https://${cfg.authDomain}/authorization`);
   u.searchParams.set("client_id", cfg.clientId);
   u.searchParams.set("response_type", "code");
   u.searchParams.set("platform_id", "mp");
