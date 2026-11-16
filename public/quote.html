@@ -234,7 +234,7 @@
     }
 
     function formatMoney(n) {
-      return "USD $" + Number(n || 0).toLocaleString("es-AR");
+      return "$\u00a0" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
     }
 
     function formatDate(ts) {

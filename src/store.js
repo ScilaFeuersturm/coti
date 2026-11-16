@@ -5,9 +5,9 @@
 import { getSeedData } from "./seed.js";
 
 const DEFAULT_ADDONS = [
-  { label: "+ Materiales / Repuestos", title: "Materiales y repuestos adicionales", price: 50 },
-  { label: "+ Mano de obra extra", title: "Mano de obra adicional", price: 50 },
-  { label: "+ Flete y traslado", title: "Traslado y logística a domicilio", price: 30 }
+  { label: "+ Materiales / Repuestos", title: "Materiales y repuestos adicionales", price: 50000 },
+  { label: "+ Mano de obra extra", title: "Mano de obra adicional", price: 50000 },
+  { label: "+ Flete y traslado", title: "Traslado y logística a domicilio", price: 30000 }
 ];
 
 const uid = () => crypto.randomUUID();
@@ -116,8 +116,8 @@ export class CotiStore {
     const identity = demoIdentity ? seed.workshop : null;
     const stmts = [
       this.q(
-        `INSERT INTO workshops (id, name, owner, phone, alias, cbu, default_deposit_pct, validity_days, created_at, trial_ends_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO workshops (id, name, owner, phone, alias, cbu, currency, default_deposit_pct, validity_days, created_at, trial_ends_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'ARS', ?, ?, ?, ?)`,
         wsId,
         identity ? identity.name : workshopName,
         identity ? identity.owner : ownerName,

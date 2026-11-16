@@ -23,7 +23,7 @@ export function getPaymentConfig(env, { demoTools }) {
     globalToken: String(env.MP_ACCESS_TOKEN || "").trim(),
     webhookSecret: String(env.MP_WEBHOOK_SECRET || "").trim(),
     currency: String(env.MP_CURRENCY || "ARS").trim().toUpperCase(),
-    // Cuántas unidades de MP_CURRENCY vale 1 unidad de la moneda del negocio (ej. 1 USD = 1200 ARS).
+    // Cuántas unidades de MP_CURRENCY vale 1 unidad de la moneda del negocio (solo si algún negocio cotiza en otra moneda).
     fxRate: Number(env.MP_FX_RATE) || null,
     clientId,
     clientSecret,
@@ -39,7 +39,7 @@ export function getPaymentConfig(env, { demoTools }) {
 
 // Convierte la seña (moneda del negocio) a la moneda en que cobra Mercado Pago.
 export function chargeAmount(depositAmount, workshopCurrency, cfg) {
-  if (String(workshopCurrency || "USD").toUpperCase() === cfg.currency) {
+  if (String(workshopCurrency || "ARS").toUpperCase() === cfg.currency) {
     return Math.round(depositAmount * 100) / 100;
   }
   if (!cfg.fxRate) {

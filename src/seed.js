@@ -11,7 +11,7 @@ export function getSeedData() {
       phone: "+54 9 11 5842-9100",
       alias: "CLIMASUR.MP",
       cbu: "0000003100084921048291",
-      currency: "USD",
+      currency: "ARS",
       defaultDepositPct: 40,
       validityDays: 7,
       plan: {
@@ -25,58 +25,58 @@ export function getSeedData() {
         id: "cat-1",
         title: "Instalación básica Split 3000 frigorías",
         category: "Climatización",
-        price: 250,
+        price: 250000,
         description: "Incluye hasta 3m de cañería de cobre, ménsulas exteriores, vacío de línea y prueba de hermeticidad."
       },
       {
         id: "cat-2",
         title: "Instalación equipo Inverter 4500/6000 fg",
         category: "Climatización",
-        price: 380,
+        price: 380000,
         description: "Cañería reforzada de 1/2 y 1/4, interconexión eléctrica certificada, desagüe oculto y puesta en marcha."
       },
       {
         id: "cat-3",
         title: "Mantenimiento preventivo + limpieza profunda",
         category: "Climatización",
-        price: 120,
+        price: 120000,
         description: "Desarme de turbina, lavado químico de evaporadora y condensadora, control de presiones R410a."
       },
       {
         id: "cat-4",
         title: "Colocación de abertura aluminio Módena DVH",
         category: "Aberturas",
-        price: 640,
+        price: 640000,
         description: "Provisión y amurado en seco de ventana balcón 200x200cm con doble vidriado hermético y sellado poliuretánico."
       },
       {
         id: "cat-5",
         title: "Tablero eléctrico seccional + disyuntor Siemens",
         category: "Electricidad",
-        price: 520,
+        price: 520000,
         description: "Recableado de circuitos principales, llaves térmicas tetrapolares, protector de tensión y puesta a tierra."
       },
       {
         id: "cat-6",
         title: "Pre-instalación en obra (cañería embutida por boca)",
         category: "Obra / Reforma",
-        price: 310,
+        price: 310000,
         description: "Canaleteado en pared, caja de preinstalación, cañería de cobre aislada y presurización con nitrógeno."
       },
       {
         id: "cat-7",
         title: "Chapa y pintura: Paño lateral + paragolpes bicapa",
         category: "Taller / Chapa",
-        price: 450,
+        price: 450000,
         description: "Desabollado artesanal, primer poliuretánico, color original en cabina presurizada y pulido espejo."
       }
     ],
     quickAddons: [
-      { id: "add-1", label: "+ Materiales / Repuestos", title: "Materiales y repuestos adicionales", price: 85 },
-      { id: "add-2", label: "+ Mano de obra extra", title: "Mano de obra adicional en altura / obra", price: 95 },
-      { id: "add-3", label: "+ Metro cañería cobre", title: "Metro adicional de cañería frigorífica + aislación", price: 45 },
-      { id: "add-4", label: "+ Flete y traslado", title: "Traslado de equipos y logística a domicilio", price: 40 },
-      { id: "add-5", label: "+ Trabajo en altura / Hidroelevador", title: "Suplemento por trabajo en fachada exterior", price: 130 }
+      { id: "add-1", label: "+ Materiales / Repuestos", title: "Materiales y repuestos adicionales", price: 85000 },
+      { id: "add-2", label: "+ Mano de obra extra", title: "Mano de obra adicional en altura / obra", price: 95000 },
+      { id: "add-3", label: "+ Metro cañería cobre", title: "Metro adicional de cañería frigorífica + aislación", price: 45000 },
+      { id: "add-4", label: "+ Flete y traslado", title: "Traslado de equipos y logística a domicilio", price: 40000 },
+      { id: "add-5", label: "+ Trabajo en altura / Hidroelevador", title: "Suplemento por trabajo en fachada exterior", price: 130000 }
     ],
     clients: [
       {
@@ -131,13 +131,13 @@ export function getSeedData() {
         serviceSummary: "Instalación de 2 equipos Inverter 4500fg + pre-instalación balcón",
         voiceTranscript: "Luciana pidió instalar dos equipos LG Inverter de 4500 frigorías en living y dormitorio principal, pasando cañería por taparrollos hacia el balcón.",
         items: [
-          { title: "Instalación equipo Inverter 4500/6000 fg (x2)", qty: 2, unitPrice: 380, total: 760 },
-          { title: "Materiales y repuestos adicionales (ménsulas inox + bandeja)", qty: 1, unitPrice: 110, total: 110 },
-          { title: "Metro adicional de cañería frigorífica + aislación (4m)", qty: 4, unitPrice: 45, total: 180 }
+          { title: "Instalación equipo Inverter 4500/6000 fg (x2)", qty: 2, unitPrice: 380000, total: 760000 },
+          { title: "Materiales y repuestos adicionales (ménsulas inox + bandeja)", qty: 1, unitPrice: 110000, total: 110000 },
+          { title: "Metro adicional de cañería frigorífica + aislación (4m)", qty: 4, unitPrice: 45000, total: 180000 }
         ],
-        total: 1050,
+        total: 1050000,
         depositPct: 40,
-        depositAmount: 420,
+        depositAmount: 420000,
         status: "waiting_reply", // draft | waiting_reply | approved
         createdAt: now - 54 * HOUR,
         sentAt: now - 52 * HOUR, // Hace 52 horas -> Activa el Superpoder de las 48hs!
@@ -156,13 +156,13 @@ export function getSeedData() {
         serviceSummary: "Pre-instalación en obra 4 bocas A/A + Tablero eléctrico dedicado",
         voiceTranscript: "Reforma completa en calle Sucre. Dejar las 4 preinstalaciones embutidas y presurizadas con nitrógeno más el tablero térmico independiente.",
         items: [
-          { title: "Pre-instalación en obra (cañería embutida por boca)", qty: 4, unitPrice: 310, total: 1240 },
-          { title: "Tablero eléctrico seccional + disyuntor Siemens", qty: 1, unitPrice: 520, total: 520 },
-          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40, total: 40 }
+          { title: "Pre-instalación en obra (cañería embutida por boca)", qty: 4, unitPrice: 310000, total: 1240000 },
+          { title: "Tablero eléctrico seccional + disyuntor Siemens", qty: 1, unitPrice: 520000, total: 520000 },
+          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40000, total: 40000 }
         ],
-        total: 1800,
+        total: 1800000,
         depositPct: 50,
-        depositAmount: 900,
+        depositAmount: 900000,
         status: "waiting_reply",
         createdAt: now - 66 * HOUR,
         sentAt: now - 64 * HOUR, // Hace 64 horas -> Activa el Superpoder de las 48hs!
@@ -181,12 +181,12 @@ export function getSeedData() {
         serviceSummary: "Mantenimiento preventivo de 5 equipos piso-techo salón principal",
         voiceTranscript: "",
         items: [
-          { title: "Mantenimiento preventivo + limpieza profunda", qty: 5, unitPrice: 120, total: 600 },
-          { title: "Materiales y repuestos adicionales (carga gas R410a y capacitores)", qty: 2, unitPrice: 85, total: 170 }
+          { title: "Mantenimiento preventivo + limpieza profunda", qty: 5, unitPrice: 120000, total: 600000 },
+          { title: "Materiales y repuestos adicionales (carga gas R410a y capacitores)", qty: 2, unitPrice: 85000, total: 170000 }
         ],
-        total: 770,
+        total: 770000,
         depositPct: 40,
-        depositAmount: 308,
+        depositAmount: 308000,
         status: "waiting_reply",
         createdAt: now - 14 * HOUR,
         sentAt: now - 12 * HOUR, // Hace 12 horas (aún dentro de las 48hs)
@@ -205,13 +205,13 @@ export function getSeedData() {
         serviceSummary: "Colocación abertura aluminio Módena DVH 200x200 en patio interno",
         voiceTranscript: "Hola Martín, te mando foto del patio. Queremos sacar el ventanal viejo de hierro y colocar puerta ventana Módena negra con DVH.",
         items: [
-          { title: "Colocación de abertura aluminio Módena DVH", qty: 1, unitPrice: 640, total: 640 },
-          { title: "Mano de obra adicional: desmonte marco antiguo de hierro", qty: 1, unitPrice: 95, total: 95 },
-          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40, total: 40 }
+          { title: "Colocación de abertura aluminio Módena DVH", qty: 1, unitPrice: 640000, total: 640000 },
+          { title: "Mano de obra adicional: desmonte marco antiguo de hierro", qty: 1, unitPrice: 95000, total: 95000 },
+          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40000, total: 40000 }
         ],
-        total: 775,
+        total: 775000,
         depositPct: 40,
-        depositAmount: 310,
+        depositAmount: 310000,
         status: "draft", // Por Enviar
         createdAt: now - 2 * HOUR,
         sentAt: null,
@@ -230,13 +230,13 @@ export function getSeedData() {
         serviceSummary: "Instalación Split 3000fg suite + Tablero térmico planta alta",
         voiceTranscript: "",
         items: [
-          { title: "Instalación básica Split 3000 frigorías", qty: 1, unitPrice: 250, total: 250 },
-          { title: "Tablero eléctrico seccional + disyuntor Siemens", qty: 1, unitPrice: 520, total: 520 },
-          { title: "Suplemento por trabajo en fachada exterior", qty: 1, unitPrice: 130, total: 130 }
+          { title: "Instalación básica Split 3000 frigorías", qty: 1, unitPrice: 250000, total: 250000 },
+          { title: "Tablero eléctrico seccional + disyuntor Siemens", qty: 1, unitPrice: 520000, total: 520000 },
+          { title: "Suplemento por trabajo en fachada exterior", qty: 1, unitPrice: 130000, total: 130000 }
         ],
-        total: 900,
+        total: 900000,
         depositPct: 40,
-        depositAmount: 360,
+        depositAmount: 360000,
         status: "approved", // Listas para Ejecutar / Seña Pagada
         createdAt: now - 110 * HOUR,
         sentAt: now - 109 * HOUR,
@@ -255,12 +255,12 @@ export function getSeedData() {
         serviceSummary: "Provisión y colocación 3 ventanales Módena DVH + flete obra",
         voiceTranscript: "",
         items: [
-          { title: "Colocación de abertura aluminio Módena DVH (x3)", qty: 3, unitPrice: 640, total: 1920 },
-          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 80, total: 80 }
+          { title: "Colocación de abertura aluminio Módena DVH (x3)", qty: 3, unitPrice: 640000, total: 1920000 },
+          { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 80000, total: 80000 }
         ],
-        total: 2000,
+        total: 2000000,
         depositPct: 50,
-        depositAmount: 1000,
+        depositAmount: 1000000,
         status: "approved",
         createdAt: now - 210 * HOUR,
         sentAt: now - 208 * HOUR,

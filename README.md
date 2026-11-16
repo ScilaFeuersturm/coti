@@ -48,13 +48,17 @@ Variables no secretas en `wrangler.jsonc` (`vars`); para desarrollo se pisan con
 |---|---|
 | `ENVIRONMENT` | `production` desactiva cuenta demo, reset y "adelantar 48hs". |
 | `PUBLIC_BASE_URL` | Opcional: URL pública si se usa un dominio propio. |
-| `MP_ACCESS_TOKEN` | **Secreto.** Activa el cobro real de señas (`npx wrangler secret put MP_ACCESS_TOKEN`). |
-| `MP_WEBHOOK_SECRET` | **Secreto.** Verifica la firma de las notificaciones de Mercado Pago. |
-| `MP_CURRENCY` / `MP_FX_RATE` | Moneda de cobro (ARS) y conversión desde USD. |
+| `MP_CLIENT_ID` / `MP_CLIENT_SECRET` | **Secretos.** Datos de la app de Mercado Pago (Credenciales de producción). Activan "Conectar Mercado Pago". |
+| `TOKEN_ENCRYPTION_KEY` | **Secreto.** Cifra en la base los tokens de cada negocio. No cambiarla: si se pierde, cada negocio debe reconectar. |
+| `MP_ACCESS_TOKEN` | **Secreto, opcional, solo de PRUEBA.** Si Mercado Pago no confirma que es de prueba, se ignora. |
+| `MP_WEBHOOK_SECRET` | **Secreto, opcional.** Verifica la firma de las notificaciones de Mercado Pago. |
+| `MP_CURRENCY` | Moneda de cobro: `ARS`. Los presupuestos se cotizan en pesos, sin conversión. |
+
+En la app de Mercado Pago, la URL de redireccionamiento es `https://<dominio>/api/mp/callback`.
 
 ### Cómo se cobra la seña
 
-- **Mercado Pago:** sin token, en desarrollo funciona en modo demo (marcado "sin cobro real"); en producción sin token no se ofrece. Con token, el cliente paga en Mercado Pago y el presupuesto se aprueba **solo** cuando el servidor confirma el pago con la API de MP (por webhook o al volver al link).
+- **Mercado Pago:** cada negocio toca "Conectar Mercado Pago" en ⚙️ Mi negocio y autoriza con **su** cuenta; las señas entran directo en ella. El presupuesto se aprueba **solo** cuando el servidor confirma el pago con la API de Mercado Pago, usando la cuenta del negocio (por notificación o al volver al link). En desarrollo, sin cuentas conectadas, hay un modo demo marcado "sin cobro real".
 - **Transferencia:** el cliente ve alias/CBU y avisa "ya transferí"; el taller lo confirma desde el tablero.
 - **Efectivo / otro:** el taller marca "Seña cobrada" desde la tarjeta.
 

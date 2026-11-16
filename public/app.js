@@ -322,7 +322,7 @@ function openEditCatalogItem(itemId) {
     fields: [
       { key: "title", label: "Nombre del combo", value: it.title, required: true, max: 150 },
       { key: "category", label: "Rubro", value: it.category, max: 60 },
-      { key: "price", label: "Precio (USD)", value: it.price, type: "number", mono: true, required: true },
+      { key: "price", label: "Precio ($)", value: it.price, type: "number", mono: true, required: true },
       { key: "description", label: "Detalle incluido", value: it.description, type: "textarea", max: 500 }
     ],
     onSave: (v) => api("PUT", `/api/catalog/${encodeURIComponent(itemId)}`, { ...v, price: Number(v.price) }),
@@ -332,8 +332,8 @@ function openEditCatalogItem(itemId) {
 }
 
 // Formateadores
-function formatUsd(val) {
-  return "USD $" + Number(val || 0).toLocaleString("es-AR");
+function formatMoney(val) {
+  return "$\u00a0" + Number(val || 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 }
 
 function formatDate(ts) {
@@ -458,7 +458,7 @@ function renderInlineClientView() {
           ? "⏳ Pendiente"
           : "📝 Borrador";
       return `<option value="${esc(q.code)}" ${q.code === currentQuote.code ? "selected" : ""}>
-        ${esc(q.code)} — ${esc(q.clientName)} (${formatUsd(q.total)} · ${stateLabel})
+        ${esc(q.code)} — ${esc(q.clientName)} (${formatMoney(q.total)} · ${stateLabel})
       </option>`;
     })
     .join("");
@@ -475,8 +475,8 @@ function renderInlineClientView() {
       <tr>
         <td><strong>${esc(it.title)}</strong></td>
         <td class="num">${it.qty}</td>
-        <td class="num">${formatUsd(it.unitPrice)}</td>
-        <td class="num"><strong>${formatUsd(it.total)}</strong></td>
+        <td class="num">${formatMoney(it.unitPrice)}</td>
+        <td class="num"><strong>${formatMoney(it.total)}</strong></td>
       </tr>
     `
     )
@@ -555,7 +555,7 @@ function renderInlineClientView() {
       <section class="totals-box">
         <div class="total-row grand">
           <span>VALOR TOTAL DEL TRABAJO</span>
-          <span class="mono">${formatUsd(currentQuote.total)}</span>
+          <span class="mono">${formatMoney(currentQuote.total)}</span>
         </div>
         <div class="deposit-highlight">
           <div>
@@ -563,10 +563,10 @@ function renderInlineClientView() {
               Seña para congelar precio y agendar turno (${currentQuote.depositPct}%)
             </div>
             <div style="font-size: 0.8rem; font-weight: 500; color: #1A1A1A;">
-              El saldo restante (${formatUsd(currentQuote.total - currentQuote.depositAmount)}) se abona al finalizar el trabajo.
+              El saldo restante (${formatMoney(currentQuote.total - currentQuote.depositAmount)}) se abona al finalizar el trabajo.
             </div>
           </div>
-          <div class="mono" style="font-size: 1.3rem;">${formatUsd(currentQuote.depositAmount)}</div>
+          <div class="mono" style="font-size: 1.3rem;">${formatMoney(currentQuote.depositAmount)}</div>
         </div>
       </section>
 
@@ -580,7 +580,7 @@ function renderInlineClientView() {
               ✓ PRESUPUESTO ACEPTADO Y SEÑADO POR EL CLIENTE
             </div>
             <div style="font-size: 0.9rem;">
-              Seña de <strong>${formatUsd(currentQuote.depositAmount)}</strong> abonada con <strong>${esc(currentQuote.paymentMethod || "Mercado Pago")}</strong> el ${formatDate(currentQuote.approvedAt)}.
+              Seña de <strong>${formatMoney(currentQuote.depositAmount)}</strong> abonada con <strong>${esc(currentQuote.paymentMethod || "Mercado Pago")}</strong> el ${formatDate(currentQuote.approvedAt)}.
             </div>
             <div style="margin-top: 12px;" class="no-print">
               <button type="button" class="btn btn-primary" onclick="goBackToWorkshopApproved()">
@@ -591,7 +591,7 @@ function renderInlineClientView() {
         `
             : `
           <div class="preview-note no-print">
-            👁️ <strong>Vista previa.</strong> Acá tu cliente ve el botón <em>"Aceptar presupuesto y señar ${formatUsd(currentQuote.depositAmount)}"</em>
+            👁️ <strong>Vista previa.</strong> Acá tu cliente ve el botón <em>"Aceptar presupuesto y señar ${formatMoney(currentQuote.depositAmount)}"</em>
             ${workshop.alias || workshop.cbu ? "y tus datos de transferencia" : "(cargá tu alias o CBU en ⚙️ Mi negocio para que también pueda transferirte)"}.
             El pago solo se hace desde el link real.
           </div>
@@ -673,19 +673,19 @@ function renderHeaderAndMetrics() {
     trialEl.textContent = daysLeft > 0 ? `Prueba: ${daysLeft} día(s)` : "Prueba terminada";
   }
 
-  document.getElementById("metricStreet").textContent = formatUsd(metrics.dineroEnLaCalle);
+  document.getElementById("metricStreet").textContent = formatMoney(metrics.dineroEnLaCalle);
   document.getElementById("metricStreetSub").textContent =
     `${metrics.counts.waiting_reply} presupuesto(s) esperando respuesta`;
 
-  document.getElementById("metricClosed").textContent = formatUsd(metrics.cerradosEsteMes);
+  document.getElementById("metricClosed").textContent = formatMoney(metrics.cerradosEsteMes);
   document.getElementById("metricClosedSub").textContent =
-    `Señas cobradas: ${formatUsd(metrics.senasCobradas)}`;
+    `Señas cobradas: ${formatMoney(metrics.senasCobradas)}`;
 
   document.getElementById("metricConversion").textContent = `${metrics.tasaConversion}%`;
   document.getElementById("metricConversionSub").textContent =
     `${metrics.counts.approved} de ${metrics.counts.sentOrClosed} enviados se aprobaron`;
   document.getElementById("metricClosedSub").textContent =
-    `${metrics.counts.approvedThisMonth} trabajo(s) · Señas: ${formatUsd(metrics.senasCobradas)}`;
+    `${metrics.counts.approvedThisMonth} trabajo(s) · Señas: ${formatMoney(metrics.senasCobradas)}`;
 
   document.getElementById("navClientsCount").textContent = clients.length;
   document.getElementById("navCatalogCount").textContent = catalog.length;
@@ -713,7 +713,7 @@ function renderCotiAssistantBar() {
     const overdueSum = overdueQuotes.reduce((acc, q) => acc + Number(q.total || 0), 0);
     bar.classList.add("has-alerts");
     speech.innerHTML = `
-      <strong>¡Atención!</strong> Tenés <strong>${overdueQuotes.length} cliente(s)</strong> que recibieron presupuesto hace más de 48 horas y todavía no respondieron (<span class="mono">${formatUsd(overdueSum)}</span> en juego).
+      <strong>¡Atención!</strong> Tenés <strong>${overdueQuotes.length} cliente(s)</strong> que recibieron presupuesto hace más de 48 horas y todavía no respondieron (<span class="mono">${formatMoney(overdueSum)}</span> en juego).
     `;
     action.innerHTML = `
       <button type="button" class="btn btn-amber" onclick="focusOverdueQuotes()">
@@ -784,7 +784,7 @@ function buildInitialWhatsAppLink(quote) {
   const cleanPhone = (quote.clientPhone || "").replace(/\D/g, "");
   const publicUrl = publicQuoteUrl(quote);
   const firstName = (quote.clientName || "Cliente").split(" ")[0];
-  const text = `Hola ${firstName}, ¿cómo estás? Te paso el presupuesto formal (${quote.code}) por *${quote.serviceSummary}*.\n\n📄 Podés ver el detalle completo, descargar el PDF o confirmar el turno abonando la seña (${formatUsd(quote.depositAmount)}) directo desde este link:\n${publicUrl}\n\nCualquier consulta avisame. ¡Saludos!`;
+  const text = `Hola ${firstName}, ¿cómo estás? Te paso el presupuesto formal (${quote.code}) por *${quote.serviceSummary}*.\n\n📄 Podés ver el detalle completo, descargar el PDF o confirmar el turno abonando la seña (${formatMoney(quote.depositAmount)}) directo desde este link:\n${publicUrl}\n\nCualquier consulta avisame. ¡Saludos!`;
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
@@ -874,7 +874,7 @@ function renderInboxBoard() {
       const itemsSummaryHtml = (q.items || [])
         .map(
           (it) =>
-            `<span style="display:inline-block; background: var(--bg-subtle); border: 1px solid var(--border-crisp); border-radius: 4px; padding: 2px 8px; font-size: 0.78rem; margin-right: 6px; margin-bottom: 4px;">${it.qty}x ${esc(it.title)} (<strong class="mono">${formatUsd(it.total)}</strong>)</span>`
+            `<span style="display:inline-block; background: var(--bg-subtle); border: 1px solid var(--border-crisp); border-radius: 4px; padding: 2px 8px; font-size: 0.78rem; margin-right: 6px; margin-bottom: 4px;">${it.qty}x ${esc(it.title)} (<strong class="mono">${formatMoney(it.total)}</strong>)</span>`
         )
         .join("");
 
@@ -899,8 +899,8 @@ function renderInboxBoard() {
             </div>
 
             <div class="quote-price-box">
-              <div class="quote-total">${formatUsd(q.total)}</div>
-              <div class="quote-deposit">Seña pedida (${q.depositPct}%): ${formatUsd(q.depositAmount)}</div>
+              <div class="quote-total">${formatMoney(q.total)}</div>
+              <div class="quote-deposit">Seña pedida (${q.depositPct}%): ${formatMoney(q.depositAmount)}</div>
             </div>
           </div>
 
@@ -1044,7 +1044,7 @@ async function markReminded(quoteId) {
 async function confirmPayment(quoteId, method) {
   const q = appState.quotes.find((x) => x.id === quoteId);
   const label = method === "Efectivo" ? "cobrada en mano / otro medio" : "recibida por transferencia";
-  if (!window.confirm(`¿Confirmás la seña de ${q ? formatUsd(q.depositAmount) : ""} ${label}?`)) return;
+  if (!window.confirm(`¿Confirmás la seña de ${q ? formatMoney(q.depositAmount) : ""} ${label}?`)) return;
   const data = await runAction("POST", `/api/quotes/${encodeURIComponent(quoteId)}/confirm-payment`, { method }, "✓ Seña confirmada. El trabajo pasó a 'Listas / Seña Pagada'.");
   if (data) {
     activeInboxTab = "approved";
@@ -1086,7 +1086,7 @@ function renderClientsSection() {
             style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; color:var(--ink-primary); background:var(--bg-bone); border:1px solid var(--border-crisp); padding:8px 10px; border-radius:4px; margin-top:6px; font-size:0.84rem;"
           >
             <span><strong class="mono">${esc(q.code)}</strong> · ${esc(q.serviceSummary)}</span>
-            <span class="mono" style="font-weight:800;">${formatUsd(q.total)} (${q.status === "approved" ? "✓ Señado" : q.status === "waiting_reply" ? "⏳ En espera" : "📝 Borrador"})</span>
+            <span class="mono" style="font-weight:800;">${formatMoney(q.total)} (${q.status === "approved" ? "✓ Señado" : q.status === "waiting_reply" ? "⏳ En espera" : "📝 Borrador"})</span>
           </div>
         `
         )
@@ -1102,7 +1102,7 @@ function renderClientsSection() {
               ${client.notes ? `<div style="font-size:0.8rem; color:var(--ink-muted); margin-top:4px;">Nota: ${esc(client.notes)}</div>` : ""}
             </div>
             <div style="text-align:right;">
-              <div class="mono" style="font-size:1rem; font-weight:800;">Total cotizado: ${formatUsd(totalQuoted)}</div>
+              <div class="mono" style="font-size:1rem; font-weight:800;">Total cotizado: ${formatMoney(totalQuoted)}</div>
               <button type="button" class="btn btn-secondary" style="margin-top:8px; min-height:40px; padding:6px 12px;" onclick="openNewQuoteForClient('${client.id}')">
                 + Nueva Cotización a ${esc(client.name.split(" ")[0])}
               </button>
@@ -1147,7 +1147,7 @@ function renderCatalogSection() {
           <p style="font-size:0.84rem; color:var(--ink-secondary);">${esc(item.description)}</p>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <span class="mono" style="font-size:1.25rem; font-weight:800; color:var(--forest);">${formatUsd(item.price)}</span>
+          <span class="mono" style="font-size:1.25rem; font-weight:800; color:var(--forest);">${formatMoney(item.price)}</span>
           <button type="button" class="btn btn-secondary" style="min-height:42px; padding:6px 12px;" onclick="useComboInFlashQuote('${item.id}')">
             ⚡ Usar en Cotización
           </button>
@@ -1199,7 +1199,7 @@ function openNewQuoteModal(prefillClient = null, prefillCombo = null) {
     draftItems = [{ title: first.title, qty: 1, unitPrice: first.price }];
     document.getElementById("fqServiceSummary").value = first.title;
   } else {
-    draftItems = [{ title: "Servicio técnico a domicilio", qty: 1, unitPrice: 250 }];
+    draftItems = [{ title: "Servicio técnico a domicilio", qty: 1, unitPrice: 250000 }];
     document.getElementById("fqServiceSummary").value = "Servicio técnico a domicilio";
   }
 
@@ -1244,7 +1244,7 @@ function renderFlashQuoteModalParts() {
           <div class="combo-pick-title">${esc(cat.title)}</div>
           <div style="font-size: 0.76rem; color: var(--ink-secondary);">${esc(cat.category)}</div>
         </div>
-        <span class="combo-pick-price">+ ${formatUsd(cat.price)}</span>
+        <span class="combo-pick-price">+ ${formatMoney(cat.price)}</span>
       </button>
     `
     )
@@ -1255,7 +1255,7 @@ function renderFlashQuoteModalParts() {
     .map(
       (add) => `
       <button type="button" class="chip-btn" onclick="addQuickAddon('${add.id}')">
-        ${esc(add.label)} ($${add.price})
+        ${esc(add.label)} (${formatMoney(add.price)})
       </button>
     `
     )
@@ -1294,7 +1294,7 @@ function addQuickAddon(addonId) {
 }
 
 function addBlankItemRow() {
-  draftItems.push({ title: "Ítem adicional", qty: 1, unitPrice: 50 });
+  draftItems.push({ title: "Ítem adicional", qty: 1, unitPrice: 50000 });
   renderDraftItemsList();
 }
 
@@ -1313,7 +1313,7 @@ function updateDraftItem(idx, field, val) {
 function removeDraftItem(idx) {
   draftItems.splice(idx, 1);
   if (draftItems.length === 0) {
-    draftItems.push({ title: "Mano de obra", qty: 1, unitPrice: 100 });
+    draftItems.push({ title: "Mano de obra", qty: 1, unitPrice: 100000 });
   }
   renderDraftItemsList();
 }
@@ -1351,7 +1351,7 @@ function renderDraftItemsList() {
           class="mono"
           min="0"
           value="${it.unitPrice}"
-          title="Precio Unitario USD"
+          title="Precio unitario ($)"
           oninput="updateDraftItem(${idx}, 'unitPrice', this.value)"
         />
         <button type="button" class="remove-item-btn" onclick="removeDraftItem(${idx})" title="Quitar ítem">
@@ -1371,8 +1371,8 @@ function updateDraftTotalsOnly() {
     0
   );
   const deposit = Math.round((total * draftDepositPct) / 100);
-  document.getElementById("fqGrandTotal").textContent = formatUsd(total);
-  document.getElementById("fqDepositTotal").textContent = `${formatUsd(deposit)} (${draftDepositPct}%)`;
+  document.getElementById("fqGrandTotal").textContent = formatMoney(total);
+  document.getElementById("fqDepositTotal").textContent = `${formatMoney(deposit)} (${draftDepositPct}%)`;
 }
 
 function simulateWorkshopVoiceNote() {
@@ -1381,18 +1381,18 @@ function simulateWorkshopVoiceNote() {
       transcript: "Instalar equipo Split Inverter 4500 frigorías en primer piso con 4 metros de cañería de cobre y soporte exterior inoxidable.",
       summary: "Instalación Split Inverter 4500fg + 4m cañería cobre",
       items: [
-        { title: "Instalación equipo Inverter 4500/6000 fg", qty: 1, unitPrice: 380 },
-        { title: "Metro adicional de cañería frigorífica + aislación", qty: 4, unitPrice: 45 },
-        { title: "Materiales y repuestos (ménsulas inox)", qty: 1, unitPrice: 85 }
+        { title: "Instalación equipo Inverter 4500/6000 fg", qty: 1, unitPrice: 380000 },
+        { title: "Metro adicional de cañería frigorífica + aislación", qty: 4, unitPrice: 45000 },
+        { title: "Materiales y repuestos (ménsulas inox)", qty: 1, unitPrice: 85000 }
       ]
     },
     {
       transcript: "Colocar dos ventanas balcón Módena con vidrio doble DVH en obra de Belgrano, incluyendo desmonte de marcos viejos y flete.",
       summary: "Provisión y colocación 2 ventanales Módena DVH + desmonte",
       items: [
-        { title: "Colocación de abertura aluminio Módena DVH", qty: 2, unitPrice: 640 },
-        { title: "Mano de obra adicional en obra (desmonte)", qty: 1, unitPrice: 95 },
-        { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40 }
+        { title: "Colocación de abertura aluminio Módena DVH", qty: 2, unitPrice: 640000 },
+        { title: "Mano de obra adicional en obra (desmonte)", qty: 1, unitPrice: 95000 },
+        { title: "Traslado de equipos y logística a domicilio", qty: 1, unitPrice: 40000 }
       ]
     }
   ];

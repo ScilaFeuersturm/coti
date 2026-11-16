@@ -1703,3 +1703,21 @@ html, body {
   padding: 4px 10px;
   font-size: 0.82rem;
 }
+
+/* Montos en pesos: más dígitos que en dólares, nunca se parten en dos líneas */
+.metric-value {
+  white-space: nowrap;
+  font-size: clamp(1.05rem, 5.2vw, 1.45rem);
+}
+.items-table td.num {
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .quote-header {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .quote-price-box {
+    text-align: left;
+  }
+}

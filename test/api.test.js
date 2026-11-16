@@ -6,6 +6,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { createApiHandler, computeMetrics } from "../src/app.js";
 import worker from "../src/worker.js";
 import { createTestD1 } from "./d1-shim.js";
+import { chargeAmount, getPaymentConfig } from "../src/payments.js";
 
 const BASE = "https://coti.test";
 
@@ -312,7 +313,7 @@ describe("Mercado Pago", () => {
   describe("token global de PRUEBA", () => {
     const mp = fakeMp();
     const app = makeApp(
-      { ENVIRONMENT: "production", MP_ACCESS_TOKEN: "TEST-123", MP_WEBHOOK_SECRET: SECRET, MP_CURRENCY: "ARS", MP_FX_RATE: "1000" },
+      { ENVIRONMENT: "production", MP_ACCESS_TOKEN: "TEST-123", MP_WEBHOOK_SECRET: SECRET, MP_CURRENCY: "ARS" },
       { mpClient: mp }
     );
     const pub = agent(app);
@@ -335,12 +336,12 @@ describe("Mercado Pago", () => {
 
     test("webhook firmado aprueba solo si MP confirma el pago por el monto correcto", async () => {
       const a = await register(app);
-      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote; // seña 120 USD = 120000 ARS
-      mp.paymentsById["111"] = { _token: "TEST-123", id: 111, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 500 };
+      const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote; // seña de $ 120
+      mp.paymentsById["111"] = { _token: "TEST-123", id: 111, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 100 };
       await hook(pub, q.publicId, 111, signed("111"));
       assert.equal((await a("GET", "/api/state")).data.quotes[0].status, "waiting_reply", "monto insuficiente no aprueba");
 
-      mp.paymentsById["222"] = { _token: "TEST-123", id: 222, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      mp.paymentsById["222"] = { _token: "TEST-123", id: 222, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120 };
       assert.equal((await hook(pub, q.publicId, 222, signed("222"))).status, 200);
       const s = await a("GET", "/api/state");
       assert.equal(s.data.quotes[0].status, "approved");
@@ -351,7 +352,7 @@ describe("Mercado Pago", () => {
     test("al volver de MP, verify-payment confirma el pago (sirve sin webhook)", async () => {
       const a = await register(app);
       const q = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
-      mp.paymentsById["333"] = { _token: "TEST-123", id: 333, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      mp.paymentsById["333"] = { _token: "TEST-123", id: 333, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120 };
       assert.equal((await pub("POST", `/api/public/quote/${q.publicId}/verify-payment`, { paymentId: "333" })).data.quote.status, "approved");
     });
 
@@ -359,7 +360,7 @@ describe("Mercado Pago", () => {
       const a = await register(app);
       const q1 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
       const q2 = (await a("POST", "/api/quotes", sampleQuote)).data.quote;
-      mp.paymentsById["444"] = { _token: "TEST-123", id: 444, status: "approved", external_reference: q1.id, currency_id: "ARS", transaction_amount: 120000 };
+      mp.paymentsById["444"] = { _token: "TEST-123", id: 444, status: "approved", external_reference: q1.id, currency_id: "ARS", transaction_amount: 120 };
       assert.equal((await pub("POST", `/api/public/quote/${q2.publicId}/verify-payment`, { paymentId: "444" })).data.quote.status, "waiting_reply");
       await hook(pub, q2.publicId, 444, signed("444"));
       const s = await a("GET", "/api/state");
@@ -389,8 +390,7 @@ describe("Mercado Pago", () => {
         MP_CLIENT_ID: "123456",
         MP_CLIENT_SECRET: "secreto-app",
         TOKEN_ENCRYPTION_KEY: ENC_KEY,
-        MP_CURRENCY: "ARS",
-        MP_FX_RATE: "1000"
+        MP_CURRENCY: "ARS"
       },
       { mpClient: mp }
     );
@@ -433,7 +433,7 @@ describe("Mercado Pago", () => {
       assert.equal(mp.calls.preferences.at(-1).accessToken, SELLER_TOKEN);
 
       // El webhook consulta el pago con el token del negocio
-      mp.paymentsById["555"] = { _token: SELLER_TOKEN, id: 555, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120000 };
+      mp.paymentsById["555"] = { _token: SELLER_TOKEN, id: 555, status: "approved", external_reference: q.id, currency_id: "ARS", transaction_amount: 120 };
       assert.equal((await hook(pub, q.publicId, 555)).status, 200);
       assert.equal((await a("GET", "/api/state")).data.quotes[0].status, "approved");
     });
@@ -489,6 +489,17 @@ describe("Worker: ruteo", () => {
     assert.deepEqual(asked, ["/quote", "/styles.css"]);
     const api = await worker.fetch(new Request(`${BASE}/api/config`), env);
     assert.equal((await api.json()).payments.connectAvailable, false);
+  });
+});
+
+describe("Moneda", () => {
+  test("los negocios cotizan en pesos y Mercado Pago cobra la seña exacta, sin conversión", async () => {
+    const app = makeApp();
+    const a = await register(app);
+    const s = await a("GET", "/api/state");
+    assert.equal(s.data.workshop.currency, "ARS");
+    const cfg = getPaymentConfig({}, { demoTools: false });
+    assert.equal(chargeAmount(84000, "ARS", cfg), 84000);
   });
 });
 
